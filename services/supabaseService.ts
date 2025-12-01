@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
 import { Animal, Shareholder, ShareStatus, AppSettings, PaymentTransaction } from '../types';
@@ -114,6 +113,16 @@ export const shareService = {
     return data;
   },
 
+  async createBulk(shares: Omit<Shareholder, 'id' | 'created_at'>[]) {
+    const { data, error } = await supabase
+      .from('shares')
+      .insert(shares)
+      .select();
+    
+    if (error) throw error;
+    return data as Shareholder[];
+  },
+
   async update(id: string, updates: Partial<Shareholder>) {
     const { data, error } = await supabase
       .from('shares')
@@ -137,12 +146,20 @@ export const paymentService = {
         try {
             const { error } = await supabase.from('payment_transactions').insert([transaction]);
             if (error) {
-                // If table doesn't exist, ignore (backward compatibility for old setup)
                 if (error.code === '42P01') return;
                 throw error;
             }
         } catch (e) {
             console.warn("Payment log failed:", e);
+        }
+    },
+
+    async createBulk(transactions: Omit<PaymentTransaction, 'id' | 'created_at'>[]) {
+        try {
+            const { error } = await supabase.from('payment_transactions').insert(transactions);
+            if (error) throw error;
+        } catch (e) {
+            console.warn("Bulk Payment log failed:", e);
         }
     },
 

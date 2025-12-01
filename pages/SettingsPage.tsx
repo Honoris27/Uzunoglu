@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { AppSettings, BankAccount } from '../types';
 import { configService, animalService } from '../services/supabaseService';
@@ -149,7 +148,6 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
   const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          // Limit file size to 2MB to prevent large DB payloads
           if (file.size > 2 * 1024 * 1024) {
               alert("Ses dosyası 2MB'dan büyük olamaz!");
               return;
@@ -168,105 +166,74 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
           audio.play().catch(e => alert("Ses çalınamadı."));
           return;
       }
-
-      // Default oscillators
+      // Default fallback tone
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      const now = ctx.currentTime;
-      
-      const type = form.notification_sound;
-      
-      if (type === 'gong') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(100, now);
-          osc.frequency.exponentialRampToValueAtTime(0.01, now + 2);
-          gain.gain.setValueAtTime(1, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
-          osc.start(now);
-          osc.stop(now + 2);
-      } else if (type === 'bell') {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(600, now);
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.linearRampToValueAtTime(0.5, now + 0.1);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-          osc.start(now);
-          osc.stop(now + 1.5);
-      } else {
-          // Ding
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(800, now);
-          osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
-          gain.gain.setValueAtTime(0.5, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-          osc.start(now);
-          osc.stop(now + 0.5);
-      }
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
   };
 
   return (
-    <div className="max-w-4xl space-y-8 pb-10">
-      <h2 className="text-2xl font-bold mb-6 dark:text-white">Sistem Ayarları</h2>
+    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center gap-4 mb-6">
+          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-xl">⚙️</div>
+          <h2 className="text-3xl font-bold dark:text-white">Ayarlar</h2>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Site Identity Settings */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
-               <span>🏢</span> Site Kimliği
-           </h3>
+        <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/20">
+           <h3 className="text-sm font-bold uppercase text-gray-400 mb-4 tracking-wider">Site Kimliği</h3>
            <div className="space-y-4">
              <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">Site Adı</label>
+               <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Uygulama Adı</label>
                <input 
                  type="text" 
                  value={form.site_title || 'BANA Kurban'} 
                  onChange={e => setForm({...form, site_title: e.target.value})}
-                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
-                 placeholder="Örn: Kardeşler Kurbanlık"
+                 className="w-full border-none bg-white dark:bg-gray-900/50 p-3 rounded-xl shadow-inner dark:text-white"
                />
              </div>
              <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">Site Logosu (Dosya Yükle)</label>
-               <input 
-                 type="file" 
-                 accept="image/*"
-                 onChange={handleLogoUpload}
-                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-sm"
-               />
-               {form.logo_url && (
-                   <div className="mt-2 bg-gray-100 dark:bg-gray-900 p-2 rounded inline-block">
-                       <img src={form.logo_url} alt="Logo Önizleme" className="h-12 w-auto object-contain" />
-                   </div>
-               )}
+               <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Logo</label>
+               <div className="flex gap-4 items-center">
+                   {form.logo_url && (
+                       <img src={form.logo_url} alt="Logo" className="h-12 w-12 object-contain bg-white rounded-lg p-1 shadow-sm" />
+                   )}
+                   <input 
+                     type="file" 
+                     accept="image/*"
+                     onChange={handleLogoUpload}
+                     className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                   />
+               </div>
              </div>
            </div>
         </div>
 
         {/* General Settings */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
-               <span>🛠️</span> Genel Ayarlar
-           </h3>
+        <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/20">
+           <h3 className="text-sm font-bold uppercase text-gray-400 mb-4 tracking-wider">Genel</h3>
            <div className="space-y-4">
              <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">Yönetici Şifresi</label>
+               <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Yönetici Şifresi</label>
                <input 
-                 type="text" 
+                 type="password" 
                  value={form.admin_password || ''} 
                  onChange={e => setForm({...form, admin_password: e.target.value})}
-                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+                 className="w-full border-none bg-white dark:bg-gray-900/50 p-3 rounded-xl shadow-inner dark:text-white"
                />
              </div>
              <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">Tema</label>
+               <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Tema</label>
                <select 
                   value={form.theme}
                   onChange={e => setForm({...form, theme: e.target.value as any})}
-                  className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+                  className="w-full border-none bg-white dark:bg-gray-900/50 p-3 rounded-xl shadow-inner dark:text-white"
                >
                  <option value="light">Aydınlık (Light)</option>
                  <option value="dark">Karanlık (Dark)</option>
@@ -274,190 +241,106 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
              </div>
              
              {/* Sound Settings */}
-             <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-               <label className="block text-sm mb-2 font-bold dark:text-gray-200">TV Bildirim Sesi</label>
-               <div className="flex gap-2 mb-2">
+             <div className="bg-gray-50/50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
+               <label className="block text-sm font-bold dark:text-white mb-2">TV Bildirim Sesi</label>
+               <div className="flex gap-2 items-center mb-3">
                    <select 
                       value={form.notification_sound || 'ding'}
                       onChange={e => setForm({...form, notification_sound: e.target.value as any})}
-                      className="flex-1 border p-2 rounded dark:bg-gray-700 dark:text-white"
+                      className="flex-1 border-none bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:text-white"
                    >
-                     <option value="ding">Ding (Hafif)</option>
-                     <option value="bell">Zil (Klasik)</option>
-                     <option value="gong">Gong (Güçlü)</option>
-                     <option value="custom">Özel Yüklenen Ses</option>
+                     <option value="ding">Ding</option>
+                     <option value="bell">Zil</option>
+                     <option value="gong">Gong</option>
+                     <option value="custom">Özel Yükle...</option>
                    </select>
                    <button 
                      onClick={playPreviewSound}
-                     className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700 flex items-center justify-center"
-                     title="Sesi Çal"
+                     className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors"
                    >
                        🔊
                    </button>
                </div>
                
                {form.notification_sound === 'custom' && (
-                   <div>
-                       <label className="block text-xs mb-1 text-gray-500">Ses Dosyası Yükle (MP3/WAV - Max 2MB)</label>
+                   <div className="text-xs">
                        <input 
                          type="file" 
                          accept="audio/*"
                          onChange={handleSoundUpload}
-                         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-xs"
+                         className="w-full text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-200"
                        />
-                       {form.custom_sound_url && <span className="text-xs text-green-600 block mt-1">✓ Dosya yüklü</span>}
+                       {form.custom_sound_url ? <span className="text-green-600 font-bold block mt-1">✓ Ses yüklü</span> : <span className="text-red-500 block mt-1">Dosya seçin (Max 2MB)</span>}
                    </div>
                )}
              </div>
-
-             <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">Varsayılan Hayvan Resmi URL</label>
-               <input 
-                 type="text" 
-                 value={form.default_image_url || ''} 
-                 onChange={e => setForm({...form, default_image_url: e.target.value})}
-                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
-                 placeholder="https://..."
-               />
-             </div>
-           </div>
-        </div>
-
-        {/* Year Management */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
-               <span>📅</span> Çalışma Yılları
-           </h3>
-           <div className="flex gap-2 mb-4">
-             <input 
-                type="number" 
-                placeholder="Yıl (örn: 2026)" 
-                value={newYear} 
-                onChange={e => setNewYear(e.target.value)}
-                className="flex-1 border p-2 rounded dark:bg-gray-700 dark:text-white"
-             />
-             <button onClick={handleAddYear} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Ekle</button>
-           </div>
-           <div className="space-y-2 max-h-40 overflow-y-auto">
-             {availableYears.map(y => (
-               <div key={y} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                  <span className="font-mono font-bold dark:text-white">{y}</span>
-                  <span className="text-xs text-gray-400">Aktif</span>
-               </div>
-             ))}
-           </div>
-        </div>
-
-        {/* Animal Types */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
-               <span>🐮</span> Hayvan Türleri
-           </h3>
-           <div className="flex gap-2 mb-4">
-             <input 
-                type="text" 
-                placeholder="Tür (örn: Deve)" 
-                value={newType} 
-                onChange={e => setNewType(e.target.value)}
-                className="flex-1 border p-2 rounded dark:bg-gray-700 dark:text-white"
-             />
-             <button onClick={addType} className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">
-                 <PlusIcon className="w-5 h-5"/>
-             </button>
-           </div>
-           <div className="space-y-2">
-               {form.animal_types?.map((type, i) => (
-                   <div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                       <span className="dark:text-white">{type}</span>
-                       <button onClick={() => removeType(i)} className="text-red-500 hover:text-red-700">
-                           <TrashIcon className="w-4 h-4"/>
-                       </button>
-                   </div>
-               ))}
            </div>
         </div>
 
         {/* Bank Accounts */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
-               <span>🏦</span> Banka Hesapları (Makbuz İçin)
-           </h3>
-           <div className="space-y-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="md:col-span-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/20">
+           <h3 className="text-sm font-bold uppercase text-gray-400 mb-4 tracking-wider">Banka Hesapları (Makbuz İçin)</h3>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {form.bank_accounts?.map((bank, i) => (
+                   <div key={i} className="flex justify-between items-start bg-white dark:bg-gray-900/50 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 group">
+                       <div className="dark:text-gray-300">
+                           <div className="font-bold text-gray-900 dark:text-white">{bank.bank_name}</div>
+                           <div className="text-xs text-gray-500">{bank.name}</div>
+                           <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1">{bank.iban}</div>
+                       </div>
+                       <button onClick={() => removeBank(i)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <TrashIcon className="w-5 h-5"/>
+                       </button>
+                   </div>
+               ))}
+           </div>
+
+           <div className="flex flex-col md:flex-row gap-3 p-4 bg-gray-50/50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
              <input 
                 type="text" 
                 placeholder="Banka Adı" 
                 value={newBank.bank_name} 
                 onChange={e => setNewBank({...newBank, bank_name: e.target.value})}
-                className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-sm"
+                className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
              />
              <input 
                 type="text" 
-                placeholder="Alıcı Adı Soyadı" 
+                placeholder="Alıcı Adı" 
                 value={newBank.name} 
                 onChange={e => setNewBank({...newBank, name: e.target.value})}
-                className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-sm"
+                className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
              />
              <input 
                 type="text" 
-                placeholder="IBAN (TR...)" 
+                placeholder="IBAN" 
                 value={newBank.iban} 
                 onChange={e => setNewBank({...newBank, iban: e.target.value})}
-                className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-sm"
+                className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
              />
-             <button onClick={addBank} className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm">Hesap Ekle</button>
-           </div>
-           <div className="space-y-2">
-               {form.bank_accounts?.map((bank, i) => (
-                   <div key={i} className="flex justify-between items-start bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm">
-                       <div className="dark:text-gray-300">
-                           <div className="font-bold">{bank.bank_name}</div>
-                           <div>{bank.name}</div>
-                           <div className="font-mono text-xs">{bank.iban}</div>
-                       </div>
-                       <button onClick={() => removeBank(i)} className="text-red-500 hover:text-red-700">
-                           <TrashIcon className="w-4 h-4"/>
-                       </button>
-                   </div>
-               ))}
+             <button onClick={addBank} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700">Ekle</button>
            </div>
         </div>
 
         {/* Data Backup */}
-        <div className="md:col-span-2 bg-purple-50 dark:bg-purple-900/20 p-6 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800">
-            <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2 text-purple-800 dark:text-purple-300">
-               <span>💾</span> Veri Yedekleme & Geri Yükleme
-           </h3>
-           <div className="flex flex-col md:flex-row gap-4">
+        <div className="md:col-span-2 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-6 rounded-2xl shadow-sm border border-purple-100 dark:border-purple-800">
+            <h3 className="text-sm font-bold uppercase text-purple-800 dark:text-purple-300 mb-4 tracking-wider">Veri Yönetimi</h3>
+            <div className="flex flex-col md:flex-row gap-6 items-center">
                <div className="flex-1">
-                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                       Tüm hayvan, hisse ve müşteri kayıtlarını bilgisayarınıza indirin.
+                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                       Tüm verileri indirerek yedekleyebilirsiniz.
                    </p>
-                   <button 
-                    onClick={handleBackup}
-                    className="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-purple-700 flex items-center gap-2"
-                   >
-                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                       Yedek İndir (JSON)
+                   <button onClick={handleBackup} className="bg-white text-purple-700 border border-purple-200 px-6 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors shadow-sm">
+                       Yedek İndir (.json)
                    </button>
                </div>
-               <div className="flex-1 border-t md:border-t-0 md:border-l border-gray-300 dark:border-gray-600 pt-4 md:pt-0 md:pl-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                       Önceden aldığınız yedeği geri yükleyin. 
-                       <strong className="block text-red-500 mt-1">DİKKAT: Mevcut veriler silinecektir!</strong>
+               <div className="w-px h-12 bg-purple-200 dark:bg-purple-800 hidden md:block"></div>
+               <div className="flex-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                       Yedek dosyasını geri yükleyin. <span className="text-red-500 font-bold">Mevcut veriler silinir!</span>
                    </p>
-                   <input 
-                        type="file" 
-                        accept=".json" 
-                        ref={fileInputRef} 
-                        style={{ display: 'none' }} 
-                        onChange={handleFileChange}
-                   />
-                   <button 
-                    onClick={handleRestoreClick}
-                    disabled={restoring}
-                    className="bg-gray-700 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-800 flex items-center gap-2 disabled:opacity-50"
-                   >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                   <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                   <button onClick={handleRestoreClick} disabled={restoring} className="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-purple-700 transition-colors shadow-lg shadow-purple-500/20 disabled:opacity-50">
                        {restoring ? 'Yükleniyor...' : 'Yedek Yükle'}
                    </button>
                </div>
@@ -466,9 +349,12 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
 
       </div>
 
-      <div className="fixed bottom-0 left-64 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-end z-20">
-          <button onClick={handleSave} className="bg-primary-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-primary-700 shadow-lg hover:scale-105 transition-transform">
-              Tüm Ayarları Kaydet
+      <div className="fixed bottom-6 right-8 z-50">
+          <button 
+            onClick={handleSave} 
+            className="bg-gray-900 dark:bg-white dark:text-gray-900 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2"
+          >
+              <span>💾</span> Ayarları Kaydet
           </button>
       </div>
     </div>
