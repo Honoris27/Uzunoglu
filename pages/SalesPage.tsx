@@ -197,45 +197,114 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
       }
   };
 
+  const ReceiptContent = ({ type }: { type: 'ORIGINAL' | 'COPY' }) => (
+      <div className="h-full flex flex-col justify-between p-8 border border-gray-200 relative bg-white">
+          {/* Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
+                <div className="transform -rotate-45 text-8xl font-black uppercase">MAKBUZ</div>
+          </div>
+          
+          <div className="relative z-10">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-4">
+                  <div>
+                      <h3 className="text-xl font-black uppercase tracking-widest text-black">TAHSİLAT MAKBUZU</h3>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{settings?.site_title || 'KURBAN SATIŞ'}</p>
+                      <span className="text-[10px] font-bold bg-gray-200 px-2 py-0.5 rounded uppercase mt-1 inline-block text-gray-600">{type === 'ORIGINAL' ? 'MÜŞTERİ NÜSHASI' : 'KOPYA NÜSHA'}</span>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-sm font-bold text-black">{new Date().toLocaleDateString('tr-TR')}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">#{Math.floor(Math.random() * 100000)}</div>
+                  </div>
+              </div>
+
+              {/* Body */}
+              <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
+                  <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                      <div className="font-bold text-gray-400 uppercase text-[9px]">SAYIN</div>
+                      <div className="font-bold text-lg text-black">{lastTransaction?.customer}</div>
+                      <div className="text-gray-600">{lastTransaction?.phone}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                      <div className="font-bold text-gray-400 uppercase text-[9px]">İŞLEM</div>
+                      <div className="flex justify-between">
+                          <span>Tür:</span> <span className="font-bold">{lastTransaction?.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                          <span>Küpe:</span> <span className="font-bold">#{lastTransaction?.animal_tag}</span>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="mb-4">
+                  <table className="w-full text-sm">
+                      <tr className="bg-black text-white">
+                          <td className="p-2 font-bold text-xs rounded-l">AÇIKLAMA</td>
+                          <td className="p-2 font-bold text-xs text-right rounded-r">TUTAR</td>
+                      </tr>
+                      <tr>
+                          <td className="p-2 border-b">{lastTransaction?.type} Ödemesi</td>
+                          <td className="p-2 border-b text-right font-bold text-lg">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction?.amount_paid || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td className="p-2 text-xs text-right font-bold text-gray-500">Kalan Bakiye:</td>
+                          <td className="p-2 text-right font-bold text-red-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction?.remaining || 0)}</td>
+                      </tr>
+                  </table>
+              </div>
+              
+              {/* Bank Info (Compact) */}
+              {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
+                  <div className="text-[10px] text-gray-500 border-t border-dashed border-gray-300 pt-2">
+                      <span className="font-bold mr-2">BANKA:</span>
+                      {settings.bank_accounts[0].bank_name} - {settings.bank_accounts[0].iban}
+                  </div>
+              )}
+          </div>
+
+          <div className="text-center text-[9px] text-gray-400 uppercase tracking-widest mt-2">
+              Bu belge bilgisayar ortamında oluşturulmuştur.
+          </div>
+      </div>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="flex items-center justify-between mb-8">
           <h2 className="text-3xl font-bold dark:text-white flex items-center gap-3">
-             <div className="bg-primary-100 dark:bg-primary-900/50 p-2 rounded-lg">
-                <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+             <div className="bg-white dark:bg-gray-700 p-2 rounded-lg shadow-sm">
+                <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              </div>
              Satış ve Kasa İşlemleri
           </h2>
       </div>
       
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md p-1 rounded-xl inline-flex mb-8 shadow-sm border border-white/20">
+      <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex mb-8 shadow-inner border border-white/10">
           <button 
             onClick={() => setActiveTab('sale')}
-            className={`px-8 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${activeTab === 'sale' ? 'bg-white dark:bg-gray-700 shadow-md text-primary-600 dark:text-white' : 'text-gray-500 hover:bg-gray-100/50 dark:hover:bg-white/5'}`}
+            className={`px-8 py-3 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${activeTab === 'sale' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-              <span className="text-xl">🤝</span>
-              YENİ SATIŞ
+              <span>🤝</span> YENİ SATIŞ
           </button>
           <button 
             onClick={() => setActiveTab('payment')}
-            className={`px-8 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${activeTab === 'payment' ? 'bg-white dark:bg-gray-700 shadow-md text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-100/50 dark:hover:bg-white/5'}`}
+            className={`px-8 py-3 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${activeTab === 'payment' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-300' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-              <span className="text-xl">💳</span>
-              TAHSİLAT (BORÇ)
+              <span>💳</span> TAHSİLAT (BORÇ)
           </button>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md p-8 rounded-2xl shadow-sm border border-white/20">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           
           {activeTab === 'sale' ? (
               <form onSubmit={handleSaleSubmit} className="space-y-6">
-                <div className="border-b border-gray-200/50 dark:border-gray-700/50 pb-4 mb-4">
-                     <h3 className="text-xl font-bold dark:text-gray-200">Hisse Satış Formu</h3>
+                <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+                     <h3 className="text-lg font-bold dark:text-gray-200">Hisse Satış Formu</h3>
                 </div>
 
-                <div className="bg-primary-50/50 dark:bg-primary-900/10 p-5 rounded-xl border border-primary-100 dark:border-primary-800/30">
-                    <label className="block text-sm font-bold text-primary-800 dark:text-primary-400 mb-2">Hayvan Seçimi</label>
+                <div className="bg-gray-50 dark:bg-gray-700/30 p-5 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Hayvan Seçimi</label>
                     <select 
                         required
                         value={selectedAnimalId}
@@ -247,7 +316,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                                 setMaxSharesInput(shares);
                             }
                         }}
-                        className="w-full p-4 border-none rounded-xl bg-white dark:bg-gray-900/50 shadow-inner focus:ring-2 focus:ring-primary-500 outline-none transition-all dark:text-white"
+                        className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-primary-500 outline-none transition-all dark:text-white text-sm"
                     >
                         <option value="">Hayvan Seçiniz...</option>
                         {animals.filter(a => (a.shares?.length || 0) < a.max_shares).map(a => (
@@ -258,40 +327,40 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                     </select>
 
                     {selectedAnimal && (
-                         <div className="mt-3 flex items-center justify-between text-sm px-2">
-                            <span className="text-primary-700 dark:text-primary-400 font-medium">Önerilen Hisse Fiyatı: <strong>{Math.floor(selectedAnimal.total_price / currentMaxShares)} TL</strong></span>
-                            <span className="text-red-600 bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-xs font-bold">Kalan Yer: {availableShares}</span>
+                         <div className="mt-3 flex items-center justify-between text-xs px-2">
+                            <span className="text-gray-600 dark:text-gray-400 font-medium">Önerilen Hisse Fiyatı: <strong>{Math.floor(selectedAnimal.total_price / currentMaxShares)} TL</strong></span>
+                            <span className="text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded font-bold">Kalan Yer: {availableShares}</span>
                         </div>
                     )}
                 </div>
 
                 {selectedAnimal && isFirstSale && !selectedAnimal.type.toLowerCase().includes('küçük') && (
-                    <div className="bg-blue-50/50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-center gap-6">
+                    <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800">
                         <div className="flex-1">
-                            <label className="block text-sm font-bold text-blue-900 dark:text-blue-300 mb-1">Toplam Hisse Adedi</label>
+                            <label className="block text-sm font-bold text-blue-900 dark:text-blue-300">Toplam Hisse Adedi</label>
                             <p className="text-xs text-blue-600 dark:text-blue-400">Bu hayvan toplam kaç hisseye bölünecek?</p>
                         </div>
-                        <input type="number" min="1" max="7" value={maxSharesInput} onChange={e => setMaxSharesInput(Number(e.target.value))} className="w-24 p-3 rounded-lg font-bold text-center text-lg shadow-inner outline-none dark:bg-gray-800 dark:text-white" />
+                        <input type="number" min="1" max="7" value={maxSharesInput} onChange={e => setMaxSharesInput(Number(e.target.value))} className="w-20 p-2 rounded border border-blue-200 dark:border-blue-700 font-bold text-center dark:bg-gray-800 dark:text-white" />
                     </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-6">
                     <div>
                       <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Müşteri Adı Soyadı</label>
-                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900/50 border-none rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 outline-none dark:text-white" placeholder="Örn: Ahmet Yılmaz" />
+                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none dark:text-white text-sm" placeholder="Örn: Ahmet Yılmaz" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Telefon Numarası</label>
-                      <input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900/50 border-none rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 outline-none dark:text-white" placeholder="05XX XXX XX XX" />
+                      <input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none dark:text-white text-sm" placeholder="05XX XXX XX XX" />
                     </div>
                 </div>
 
-                <div className="bg-amber-50 dark:bg-amber-900/10 p-5 rounded-xl border border-amber-200 dark:border-amber-800/30">
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800">
                     <div>
-                        <label className="block text-xs font-bold uppercase text-amber-800 dark:text-amber-500 mb-1">Hisse Tutarı</label>
+                        <label className="block text-xs font-bold uppercase text-amber-800 dark:text-amber-500 mb-1">Hisse Tutarı (Anlaşılan)</label>
                         <div className="relative">
-                        <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-3 border-none shadow-inner rounded-lg font-bold text-lg bg-white dark:bg-gray-900 dark:text-white pr-10" />
-                        <span className="absolute right-3 top-3.5 text-gray-400 font-bold">TL</span>
+                        <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-2 bg-transparent border-b-2 border-amber-300 dark:border-amber-700 font-bold text-xl text-gray-900 dark:text-white outline-none" />
+                        <span className="absolute right-2 top-2 text-amber-600 font-bold">TL</span>
                         </div>
                     </div>
                 </div>
@@ -300,13 +369,13 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                     <div>
                       <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Şimdi Ödenen (Peşinat)</label>
                       <div className="relative">
-                        <input type="number" required value={formData.amount_paid} onChange={e => setFormData({...formData, amount_paid: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900/50 border-none rounded-lg shadow-sm font-mono font-medium dark:text-white" />
-                        <span className="absolute right-3 top-3 text-gray-400">TL</span>
+                        <input type="number" required value={formData.amount_paid} onChange={e => setFormData({...formData, amount_paid: e.target.value})} className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg font-mono font-medium dark:text-white text-sm" />
+                        <span className="absolute right-3 top-3 text-gray-400 text-xs">TL</span>
                       </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Ödeme Durumu</label>
-                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-3 bg-white dark:bg-gray-900/50 border-none rounded-lg shadow-sm dark:text-white">
+                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg dark:text-white text-sm">
                             <option value={ShareStatus.Unpaid}>🔴 Hiç Ödenmedi</option>
                             <option value={ShareStatus.Partial}>🟠 Kısmi Ödeme (Kapora)</option>
                             <option value={ShareStatus.Paid}>🟢 Tamamı Ödendi</option>
@@ -317,15 +386,15 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                 <button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full bg-gradient-to-r from-primary-600 to-primary-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.01] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-primary-500/30"
+                    className="w-full bg-gray-900 dark:bg-white dark:text-gray-900 text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-opacity flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'İşleniyor...' : 'Satışı Tamamla ve Makbuz Kes'}
+                  {isSubmitting ? 'İşleniyor...' : 'Satışı Onayla'}
                 </button>
               </form>
           ) : (
               <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                   <div className="border-b border-gray-200/50 dark:border-gray-700/50 pb-4 mb-4">
-                     <h3 className="text-xl font-bold dark:text-gray-200">Borç Ödeme Formu</h3>
+                   <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+                     <h3 className="text-lg font-bold dark:text-gray-200">Borç Ödeme Formu</h3>
                   </div>
                   
                   <div>
@@ -334,7 +403,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                         required
                         value={selectedShareholderId}
                         onChange={e => setSelectedShareholderId(e.target.value)}
-                        className="w-full p-4 border-none rounded-xl bg-white dark:bg-gray-900/50 shadow-inner focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                        className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white text-sm"
                       >
                           <option value="">Müşteri Seçiniz...</option>
                           {debtors.map(d => (
@@ -346,19 +415,19 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                   </div>
 
                   {selectedDebtor && (
-                      <div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30 flex flex-col gap-3">
-                          <div className="flex justify-between items-center border-b border-blue-100 dark:border-blue-800 pb-2">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800 flex flex-col gap-3">
+                          <div className="flex justify-between items-center border-b border-blue-200 dark:border-blue-800 pb-2">
                               <span className="text-blue-800 dark:text-blue-300 font-bold">#{selectedDebtor.animalTag}</span>
-                              <span className="text-xs text-blue-500 uppercase font-bold tracking-wider">Hisse Detayı</span>
+                              <span className="text-[10px] text-blue-500 uppercase font-bold tracking-wider">Hisse Detayı</span>
                           </div>
                           <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                  <span className="block text-gray-500">Toplam Borç</span>
-                                  <span className="font-bold text-gray-900 dark:text-white text-lg">{selectedDebtor.amount_agreed} TL</span>
+                                  <span className="block text-gray-500 text-xs">Toplam Borç</span>
+                                  <span className="font-bold text-gray-900 dark:text-white">{selectedDebtor.amount_agreed} TL</span>
                               </div>
                               <div className="text-right">
-                                  <span className="block text-gray-500">Kalan</span>
-                                  <span className="font-bold text-red-600 text-lg">{selectedDebtor.amount_agreed - selectedDebtor.amount_paid} TL</span>
+                                  <span className="block text-gray-500 text-xs">Kalan</span>
+                                  <span className="font-bold text-red-600">{selectedDebtor.amount_agreed - selectedDebtor.amount_paid} TL</span>
                               </div>
                           </div>
                       </div>
@@ -373,7 +442,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                             max={selectedDebtor ? selectedDebtor.amount_agreed - selectedDebtor.amount_paid : 0}
                             value={paymentAmount} 
                             onChange={e => setPaymentAmount(e.target.value)} 
-                            className="w-full p-4 border-none rounded-xl bg-white dark:bg-gray-900 shadow-inner font-bold text-xl pr-12 dark:text-white" 
+                            className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 font-bold text-xl pr-12 dark:text-white" 
                           />
                           <span className="absolute right-4 top-5 text-gray-400 font-bold">TL</span>
                       </div>
@@ -382,37 +451,37 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                   <button 
                     type="submit" 
                     disabled={!selectedDebtor || isSubmitting} 
-                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                       {isSubmitting ? 'İşleniyor...' : 'Ödemeyi Al ve Makbuz Kes'}
+                       {isSubmitting ? 'İşleniyor...' : 'Ödemeyi Al'}
                   </button>
               </form>
           )}
         </div>
 
         {/* Transaction History Sidebar */}
-        <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl p-6 border border-white/20 h-fit sticky top-6">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <span className="w-2 h-6 bg-primary-500 rounded-full"></span>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 h-fit sticky top-6 shadow-sm">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               Son İşlemler
           </h3>
           
           {transactionHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm italic border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                  Henüz işlem yapılmadı.
+              <div className="text-center py-8 text-gray-400 text-xs italic border border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
+                  Henüz işlem yok
               </div>
           ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                   {transactionHistory.map((tr) => (
-                      <div key={tr.id} className="bg-white dark:bg-gray-900 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:scale-[1.02] transition-transform">
+                      <div key={tr.id} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 hover:border-gray-300 transition-colors">
                           <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
                               <span className="text-gray-400">{tr.time}</span>
                               <span className={`${tr.type === 'SATIŞ' ? 'text-primary-600' : 'text-blue-600'}`}>{tr.type}</span>
                           </div>
-                          <div className="font-bold text-gray-800 dark:text-gray-200 text-sm">{tr.customer}</div>
+                          <div className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">{tr.customer}</div>
                           <div className="flex justify-between items-end mt-1">
-                              <span className="text-gray-500 text-xs">{tr.detail}</span>
-                              <span className="font-mono font-bold text-green-600">+{tr.amount} TL</span>
+                              <span className="text-gray-500 text-[10px]">{tr.detail}</span>
+                              <span className="font-mono font-bold text-green-600 text-xs">+{tr.amount} TL</span>
                           </div>
                       </div>
                   ))}
@@ -423,128 +492,55 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
 
       <Modal isOpen={isReceiptOpen} onClose={() => setIsReceiptOpen(false)} title="İşlem Makbuzu">
          {lastTransaction && (
-           <div className="bg-white text-black font-sans leading-relaxed p-8 relative overflow-hidden print-area" id="receipt-area">
-              {/* Paper Watermark Effect */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                   <div className="transform -rotate-45 text-9xl font-black uppercase">MAKBUZ</div>
-              </div>
-
-              {/* A4 Paper Container Content */}
-              <div className="relative z-10">
-                  {/* Header */}
-                  <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-8">
-                      <div className="flex flex-col">
-                          <div className="text-3xl font-black uppercase tracking-widest text-black flex items-center gap-2">
-                             <span>TAHSİLAT MAKBUZU</span>
-                          </div>
-                          <span className="text-sm font-bold text-gray-600 mt-1 uppercase tracking-[0.2em]">{settings?.site_title || 'KURBAN SATIŞ ORGANİZASYONU'}</span>
-                      </div>
-                      <div className="text-right">
-                          <div className="inline-block bg-black text-white px-3 py-1 text-xs font-bold uppercase tracking-wider mb-1">TARİH</div>
-                          <div className="text-xl font-bold text-black">{new Date().toLocaleDateString('tr-TR')}</div>
-                          <div className="text-xs text-gray-400 mt-1 font-mono">ID: {Math.floor(Math.random() * 100000)}</div>
-                      </div>
-                  </div>
-
-                  {/* Info Blocks */}
-                  <div className="grid grid-cols-2 gap-8 mb-8">
-                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">MÜŞTERİ BİLGİLERİ</h3>
-                          <p className="text-xl font-bold text-black border-b border-gray-300 pb-1 mb-1">{lastTransaction.customer}</p>
-                          <p className="text-gray-600 font-mono text-sm">{lastTransaction.phone}</p>
-                      </div>
-                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">İŞLEM DETAYI</h3>
-                          <div className="space-y-1 text-sm">
-                              <div className="flex justify-between">
-                                  <span className="text-gray-600">Tür:</span>
-                                  <span className="font-bold text-black uppercase">{lastTransaction.type}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                  <span className="text-gray-600">Küpe No:</span>
-                                  <span className="font-bold text-black">#{lastTransaction.animal_tag}</span>
-                              </div>
-                              {lastTransaction.share_count > 1 && (
-                                <div className="flex justify-between text-blue-800 font-bold bg-blue-100 px-1 rounded mt-1">
-                                    <span>Hisse Adedi:</span>
-                                    <span>{lastTransaction.share_count} Adet</span>
-                                </div>
-                              )}
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Financial Table */}
-                  <table className="w-full border-collapse mb-8">
-                      <thead>
-                          <tr className="bg-black text-white">
-                              <th className="text-left py-2 px-4 font-bold uppercase text-xs tracking-wider rounded-tl-lg">AÇIKLAMA</th>
-                              <th className="text-right py-2 px-4 font-bold uppercase text-xs tracking-wider rounded-tr-lg">TUTAR</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <tr className="border-b border-gray-200">
-                              <td className="py-4 px-4 text-sm font-medium text-gray-800">
-                                  {lastTransaction.type} İşlemi - {new Date().toLocaleTimeString()}
-                              </td>
-                              <td className="py-4 px-4 text-right text-2xl font-bold text-black">
-                                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.amount_paid)}
-                              </td>
-                          </tr>
-                          <tr className="bg-gray-50">
-                              <td className="py-3 px-4 text-xs font-bold text-gray-500 uppercase text-right">Kalan Bakiye:</td>
-                              <td className="py-3 px-4 text-right text-lg font-bold text-red-600">
-                                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.remaining)}
-                              </td>
-                          </tr>
-                      </tbody>
-                  </table>
-
-                  {/* Bank Details */}
-                  {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
-                      <div className="mb-6 p-4 border border-dashed border-gray-400 rounded-lg bg-gray-50">
-                          <h4 className="font-bold text-xs uppercase text-black mb-3 border-b border-gray-300 pb-1 inline-block">Banka Hesap Bilgilerimiz</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                              {settings.bank_accounts.map((acc, i) => (
-                                  <div key={i} className="flex flex-col">
-                                      <div className="font-bold text-black">{acc.bank_name}</div>
-                                      <div className="text-gray-600 italic">{acc.name}</div>
-                                      <div className="font-mono font-bold text-gray-800 tracking-tight">{acc.iban}</div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  )}
-
-                  {/* Footer */}
-                  <div className="text-center pt-6 border-t border-gray-200">
-                      <p className="text-gray-400 text-[10px] uppercase tracking-widest">Bu belge bilgisayar ortamında oluşturulmuştur. Islak imza gerektirmez.</p>
-                      <p className="text-gray-900 font-bold text-xs mt-1">{settings?.site_title || 'BANA Kurban Yönetim Sistemi'}</p>
+           <div className="bg-gray-100">
+              {/* Screen View (Preview of one) */}
+              <div className="p-4 print:hidden flex justify-center bg-gray-800">
+                  <div className="bg-white w-[300px] shadow-xl origin-top transform scale-90">
+                      <ReceiptContent type="ORIGINAL" />
                   </div>
               </div>
 
-              {/* Print Button (Hidden when printing) */}
-              <button onClick={() => window.print()} className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-colors print:hidden shadow-xl flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                  YAZDIR (A4)
-              </button>
+              {/* Print View (2 on A4) */}
+              <div className="hidden print:flex flex-col h-[100vh] w-full bg-white print-container">
+                  <div className="flex-1 border-b border-dashed border-gray-300 relative">
+                     <ReceiptContent type="ORIGINAL" />
+                  </div>
+                  
+                  {/* Scissors / Cut Line */}
+                  <div className="h-0 relative flex items-center justify-center">
+                       <div className="absolute bg-white px-2 text-gray-400 flex items-center gap-2">
+                           <span>✂️</span> <span className="text-[10px] uppercase tracking-widest">Kesme Çizgisi</span>
+                       </div>
+                  </div>
+
+                  <div className="flex-1">
+                     <ReceiptContent type="COPY" />
+                  </div>
+              </div>
+
+              {/* Print Button */}
+              <div className="p-4 bg-white border-t flex justify-end print:hidden">
+                   <button onClick={() => window.print()} className="bg-black text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-800 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                      Yazdır (2 Adet A4)
+                   </button>
+              </div>
               
               <style>{`
                   @media print {
                       body * { visibility: hidden; }
-                      #receipt-area, #receipt-area * { visibility: visible; }
-                      #receipt-area { 
+                      .print-container, .print-container * { visibility: visible; }
+                      .print-container { 
                           position: fixed; 
                           left: 0; 
                           top: 0; 
                           width: 100%; 
                           height: 100%;
-                          padding: 2cm; 
-                          background: white; 
-                          color: black; 
                           z-index: 9999;
                       }
                       .print\\:hidden { display: none !important; }
+                      .print\\:flex { display: flex !important; }
+                      @page { margin: 0; size: A4 portrait; }
                   }
               `}</style>
            </div>
