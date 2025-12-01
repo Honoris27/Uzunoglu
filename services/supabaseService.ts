@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
-import { Animal, Shareholder, ShareStatus, AppSettings } from '../types';
+import { Animal, Shareholder, ShareStatus, AppSettings, PaymentTransaction } from '../types';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -28,14 +28,14 @@ export const animalService = {
   async getAllForBackup() {
     const { data: animals } = await supabase.from('animals').select('*');
     const { data: shares } = await supabase.from('shares').select('*');
-    return { animals, shares };
+    const { data: payments } = await supabase.from('payment_transactions').select('*');
+    return { animals, shares, payments };
   },
 
   async restoreData(backupData: any) {
-      // Very basic restore: Delete all and re-insert. Use with caution.
-      // In a production app, you might want "merge" or "smart restore".
       if (backupData.animals && Array.isArray(backupData.animals)) {
-          // Clean existing for safety if full restore
+          // Clean existing (cascade will handle shares/payments usually, but being explicit is safe)
+          await supabase.from('payment_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
           await supabase.from('shares').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
           await supabase.from('animals').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
@@ -45,6 +45,11 @@ export const animalService = {
           if (backupData.shares && Array.isArray(backupData.shares) && backupData.shares.length > 0) {
               const { error: err2 } = await supabase.from('shares').insert(backupData.shares);
               if (err2) throw err2;
+          }
+
+          if (backupData.payments && Array.isArray(backupData.payments) && backupData.payments.length > 0) {
+              const { error: err3 } = await supabase.from('payment_transactions').insert(backupData.payments);
+              if (err3) throw err3;
           }
       }
   },
@@ -122,6 +127,36 @@ export const shareService = {
   }
 };
 
+export const paymentService = {
+    async create(transaction: Omit<PaymentTransaction, 'id' | 'created_at'>) {
+        try {
+            const { error } = await supabase.from('payment_transactions').insert([transaction]);
+            if (error) {
+                // If table doesn't exist, ignore (backward compatibility for old setup)
+                if (error.code === '42P01') return;
+                throw error;
+            }
+        } catch (e) {
+            console.warn("Payment log failed:", e);
+        }
+    },
+
+    async getByShareId(shareId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('payment_transactions')
+                .select('*')
+                .eq('share_id', shareId)
+                .order('created_at', { ascending: true });
+            
+            if (error) return [];
+            return data as PaymentTransaction[];
+        } catch (e) {
+            return [];
+        }
+    }
+};
+
 export const configService = {
   async getSettings() {
     try {
@@ -134,8 +169,8 @@ export const configService = {
           animal_types: ['Büyükbaş'],
           bank_accounts: [],
           active_announcement: '',
-          announcement_duration_minutes: 0,
-          announcement_start_time: '',
+          announcement_duration_sec: 60,
+          announcement_timestamp: '',
           notification_sound: 'ding',
           site_title: 'BANA Kurban',
           logo_url: ''
@@ -143,22 +178,19 @@ export const configService = {
 
       if (error) {
         if (error.code === '42P01' || error.code === 'PGRST116') {
-            console.warn("Settings table missing or empty. Using defaults.");
             return defaults;
         }
         throw error;
       }
       return { ...defaults, ...data };
     } catch (error) {
-      console.warn("Failed to fetch settings (likely first run):", error);
-      return { id: 0, admin_password: 'admin123', theme: 'light', animal_types: ['Büyükbaş'], site_title: 'BANA Kurban' } as AppSettings;
+      return { id: 0, admin_password: 'admin123', theme: 'light', animal_types: ['Büyükbaş'] } as AppSettings;
     }
   },
   
   async updateSettings(updates: Partial<AppSettings>) {
     const { data: existing } = await supabase.from('app_settings').select('id').limit(1).single();
     if (existing) {
-        // Ensure complex types are passed correctly for JSONB
         const payload = { ...updates };
         const { data, error } = await supabase.from('app_settings').update(payload).eq('id', existing.id).select().single();
         if (error) throw error;
@@ -169,13 +201,9 @@ export const configService = {
   async getYears() {
     try {
       const { data, error } = await supabase.from('years').select('year').order('year', { ascending: false });
-      if (error) {
-        if (error.code === '42P01') return [new Date().getFullYear()];
-        throw error;
-      }
+      if (error) return [new Date().getFullYear()];
       return data?.map(y => y.year) || [];
     } catch (error) {
-      console.warn("Failed to fetch years:", error);
       return [new Date().getFullYear()];
     }
   },

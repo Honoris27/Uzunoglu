@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Animal, ShareStatus, AppSettings, Shareholder } from '../types';
-import { shareService, animalService, configService } from '../services/supabaseService';
+import { shareService, animalService, configService, paymentService } from '../services/supabaseService';
 import Modal from '../components/Modal';
 
 interface Props {
@@ -40,7 +40,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     amount_agreed: '',
     amount_paid: '0',
     status: ShareStatus.Unpaid,
-    share_count: 1 // New: How many shares to buy
+    share_count: 1 
   });
 
   const [maxSharesInput, setMaxSharesInput] = useState(7); 
@@ -48,12 +48,10 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
   const selectedAnimal = animals.find(a => a.id === selectedAnimalId);
   const isFirstSale = selectedAnimal && (!selectedAnimal.shares || selectedAnimal.shares.length === 0);
   
-  // Calculate available shares
   const currentShares = selectedAnimal?.shares?.length || 0;
   const currentMaxShares = selectedAnimal ? (isFirstSale ? maxSharesInput : selectedAnimal.max_shares) : 7;
   const availableShares = currentMaxShares - currentShares;
 
-  // Derived state for Payment Tab
   const allShareholders = animals.flatMap(a => (a.shares || []).map(s => ({ ...s, animalTag: a.tag_number, animalId: a.id })));
   const debtors = allShareholders.filter(s => s.status !== ShareStatus.Paid && (s.amount_agreed - s.amount_paid) > 0);
   const selectedDebtor = debtors.find(d => d.id === selectedShareholderId);
@@ -76,17 +74,15 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     }
 
     try {
-      // 1. Update Max Shares if first sale
       if (isFirstSale) {
         await animalService.update(selectedAnimal.id, { max_shares: maxSharesInput });
       }
 
-      // 2. Create Shares Loop
       const sharePrice = Number(formData.amount_agreed) / formData.share_count;
       const paidPerShare = Number(formData.amount_paid) / formData.share_count;
 
       for (let i = 0; i < formData.share_count; i++) {
-          await shareService.create({
+          const newShare = await shareService.create({
             animal_id: selectedAnimal.id,
             name: formData.name,
             phone: formData.phone,
@@ -94,9 +90,18 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
             amount_paid: paidPerShare,
             status: formData.status as ShareStatus
           });
+
+          // Log Transaction
+          if (newShare && paidPerShare > 0) {
+              await paymentService.create({
+                  share_id: newShare.id,
+                  amount: paidPerShare,
+                  type: 'PAYMENT',
+                  description: 'İlk Satış Ödemesi'
+              });
+          }
       }
 
-      // 3. Receipt & History
       const transactionData = { 
           type: 'HİSSE SATIŞI',
           customer: formData.name,
@@ -140,6 +145,14 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           await shareService.update(selectedDebtor.id, {
               amount_paid: newPaid,
               status: newStatus
+          });
+
+          // Log Transaction
+          await paymentService.create({
+              share_id: selectedDebtor.id,
+              amount: payment,
+              type: 'PAYMENT',
+              description: 'Borç Ödemesi'
           });
 
           const transactionData = {
@@ -192,7 +205,6 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Form Section */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
           
           {activeTab === 'sale' ? (
@@ -335,7 +347,6 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           )}
         </div>
 
-        {/* History Section */}
         <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 h-fit">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 border-b pb-2">Son İşlemler (Bugün)</h3>
           
@@ -435,26 +446,6 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                       </div>
                   </div>
               )}
-
-              <div className="mt-12 flex justify-between px-8 text-center text-sm text-gray-500">
-                  <div>
-                      <p className="mb-8">Teslim Eden</p>
-                      <div className="w-32 border-t border-gray-300 mx-auto"></div>
-                  </div>
-                  <div>
-                      <p className="mb-8">Teslim Alan</p>
-                      <div className="w-32 border-t border-gray-300 mx-auto"></div>
-                  </div>
-              </div>
-
-              <style>{`
-                @media print {
-                  @page { size: A4; margin: 1cm; }
-                  body * { visibility: hidden; }
-                  #receipt-area, #receipt-area * { visibility: visible; }
-                  #receipt-area { position: absolute; left: 0; top: 0; width: 100%; height: 100%; padding: 0; margin: 0; background: white; }
-                }
-              `}</style>
 
               <button onClick={() => window.print()} className="w-full mt-8 bg-gray-900 text-white py-4 rounded-lg font-bold hover:bg-black transition-colors print:hidden shadow-xl">
                   YAZDIR (A4)

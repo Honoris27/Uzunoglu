@@ -24,6 +24,15 @@ export interface Shareholder {
   created_at?: string;
 }
 
+export interface PaymentTransaction {
+  id: string;
+  share_id: string;
+  amount: number;
+  type: 'PAYMENT' | 'REFUND' | 'SALE_INIT';
+  description?: string;
+  created_at: string;
+}
+
 export interface Animal {
   id: string;
   tag_number: string;
@@ -53,11 +62,11 @@ export interface AppSettings {
   animal_types?: string[];
   bank_accounts?: BankAccount[];
   active_announcement?: string; 
-  announcement_duration_minutes?: number;
-  announcement_start_time?: string;
+  announcement_duration_sec?: number; // Changed to seconds
+  announcement_timestamp?: string; // To trigger sound
   notification_sound?: 'ding' | 'gong' | 'bell';
-  site_title?: string; // New
-  logo_url?: string; // New
+  site_title?: string;
+  logo_url?: string;
 }
 
 export interface YearRecord {

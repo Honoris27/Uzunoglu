@@ -10,11 +10,13 @@ interface Props {
 
 const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
   const [announcement, setAnnouncement] = useState('');
+  const [duration, setDuration] = useState('60');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
      configService.getSettings().then(s => {
          if(s.active_announcement) setAnnouncement(s.active_announcement);
+         if(s.announcement_duration_sec) setDuration(s.announcement_duration_sec.toString());
      });
   }, []);
 
@@ -30,7 +32,11 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
   const updateAnnouncement = async () => {
       setLoading(true);
       try {
-          await configService.updateSettings({ active_announcement: announcement });
+          await configService.updateSettings({ 
+              active_announcement: announcement,
+              announcement_duration_sec: Number(duration),
+              announcement_timestamp: new Date().toISOString() // Updates timestamp to trigger sound/freshness
+          });
           alert("Duyuru ekrana gönderildi.");
       } catch(e) { alert("Hata"); }
       setLoading(false);
@@ -57,21 +63,30 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
         </div>
 
         {/* Announcement Section */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-8 flex gap-4 items-center">
-            <div className="flex-1">
-                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">TV Duyuru Paneli</label>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">TV Duyuru Metni</label>
                 <input 
                     type="text" 
                     value={announcement}
                     onChange={e => setAnnouncement(e.target.value)}
-                    placeholder="Ekranda görünecek duyuru metnini giriniz (Örn: Öğle molası 1 saattir)"
-                    className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+                    placeholder="Ekranda görünecek duyuru metnini giriniz..."
+                    className="w-full border p-3 rounded dark:bg-gray-700 dark:text-white"
+                />
+            </div>
+            <div className="w-full md:w-32">
+                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Süre (Saniye)</label>
+                <input 
+                    type="number" 
+                    value={duration}
+                    onChange={e => setDuration(e.target.value)}
+                    className="w-full border p-3 rounded dark:bg-gray-700 dark:text-white text-center font-bold"
                 />
             </div>
             <button 
                 onClick={updateAnnouncement}
                 disabled={loading}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 h-full mt-5"
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 h-full w-full md:w-auto"
             >
                 {loading ? '...' : 'YAYINLA'}
             </button>
@@ -92,7 +107,6 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
                                     <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">{animal.type}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-1 mt-2">
-                                    {/* Navigation Buttons */}
                                     {col.id !== SlaughterStatus.Pending && (
                                         <button 
                                             onClick={() => handleUpdateStatus(animal.id, getPrevStatus(col.id))}

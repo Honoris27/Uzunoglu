@@ -4,6 +4,7 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const SQL_SETUP_SCRIPT = `
 -- Drop existing tables to reset schema (Optional, use carefully)
+-- drop table if exists public.payment_transactions;
 -- drop table if exists public.shares;
 -- drop table if exists public.animals;
 -- drop table if exists public.app_settings;
@@ -17,8 +18,8 @@ create table if not exists public.app_settings (
   animal_types jsonb default '["Büyükbaş", "Küçükbaş"]'::jsonb,
   bank_accounts jsonb default '[]'::jsonb,
   active_announcement text default '',
-  announcement_duration_minutes int default 0,
-  announcement_start_time text default '',
+  announcement_duration_sec int default 60,
+  announcement_timestamp text default '',
   notification_sound text default 'ding',
   site_title text default 'BANA Kurban',
   logo_url text default ''
@@ -64,14 +65,26 @@ create table if not exists public.shares (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Create payment transactions table (NEW)
+create table if not exists public.payment_transactions (
+  id uuid default gen_random_uuid() primary key,
+  share_id uuid references public.shares(id) on delete cascade,
+  amount int not null,
+  type text not null check (type in ('PAYMENT', 'REFUND', 'SALE_INIT')),
+  description text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 -- RLS Policies
 alter table public.animals enable row level security;
 alter table public.shares enable row level security;
 alter table public.app_settings enable row level security;
 alter table public.years enable row level security;
+alter table public.payment_transactions enable row level security;
 
 create policy "Public animals access" on public.animals for all using (true);
 create policy "Public shares access" on public.shares for all using (true);
 create policy "Public settings access" on public.app_settings for all using (true);
 create policy "Public years access" on public.years for all using (true);
+create policy "Public payments access" on public.payment_transactions for all using (true);
 `;

@@ -13,11 +13,13 @@ interface AlertState {
 const LiveTVPage = () => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [announcement, setAnnouncement] = useState('');
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   
   // Alert State
   const [activeAlert, setActiveAlert] = useState<AlertState | null>(null);
   const prevStatuses = useRef<Map<string, SlaughterStatus>>(new Map());
+  const lastAnnouncementTime = useRef<string>('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
@@ -31,7 +33,24 @@ const LiveTVPage = () => {
     try {
         const appSettings = await configService.getSettings();
         setSettings(appSettings);
-        setAnnouncement(appSettings.active_announcement || '');
+        
+        // Handle Announcement Logic
+        if (appSettings.active_announcement && appSettings.announcement_timestamp) {
+            // Check if it's a new announcement
+            if (appSettings.announcement_timestamp !== lastAnnouncementTime.current) {
+                lastAnnouncementTime.current = appSettings.announcement_timestamp;
+                setAnnouncement(appSettings.active_announcement);
+                setShowAnnouncement(true);
+                
+                if (audioEnabled) {
+                    playTone('bell'); // Alert sound for announcement
+                }
+
+                // Hide after duration
+                const duration = (appSettings.announcement_duration_sec || 60) * 1000;
+                setTimeout(() => setShowAnnouncement(false), duration);
+            }
+        }
 
         const years = await configService.getYears();
         const currentYear = years[0]; 
@@ -46,7 +65,6 @@ const LiveTVPage = () => {
   };
 
   const checkChanges = (data: Animal[], currentSettings: AppSettings) => {
-      // If first load, just populate the map, don't alert
       if (isFirstLoad) {
           data.forEach(a => prevStatuses.current.set(a.id, a.slaughter_status));
           return;
@@ -57,9 +75,6 @@ const LiveTVPage = () => {
           const newStatus = animal.slaughter_status;
 
           if (oldStatus && oldStatus !== newStatus) {
-              // Status Changed! Trigger Alert.
-              
-              // Determine alert properties based on new Status
               let title = "DURUM GÜNCELLENDİ";
               let color = "bg-gray-800";
               let soundType = currentSettings.notification_sound || 'ding';
@@ -67,24 +82,23 @@ const LiveTVPage = () => {
               switch(newStatus) {
                   case SlaughterStatus.Cut:
                       title = "KESİM İŞLEMİ TAMAMLANDI";
-                      color = "text-red-600 border-red-600";
+                      color = "text-red-500 border-red-500";
                       break;
                   case SlaughterStatus.Chopping:
-                      title = "PARÇALAMA İŞLEMİNE BAŞLANDI";
-                      color = "text-orange-600 border-orange-600";
+                      title = "PARÇALAMA BAŞLADI";
+                      color = "text-orange-500 border-orange-500";
                       break;
                   case SlaughterStatus.Sharing:
-                      title = "HİSSE PAYLAŞIMI YAPILIYOR";
-                      color = "text-yellow-600 border-yellow-600";
+                      title = "HİSSE PAYLAŞIMI";
+                      color = "text-yellow-500 border-yellow-500";
                       break;
                   case SlaughterStatus.Delivered:
                       title = "TESLİMAT İÇİN HAZIR";
-                      color = "text-green-600 border-green-600";
-                      soundType = 'bell'; // Different sound for finish
+                      color = "text-green-500 border-green-500";
+                      soundType = 'bell';
                       break;
               }
 
-              // Set Alert
               if (!activeAlert) {
                 setActiveAlert({ animal, status: newStatus, color, title });
                 
@@ -92,16 +106,11 @@ const LiveTVPage = () => {
                     playTone(soundType);
                     speak(animal.tag_number, title);
                 }
-
-                // Auto clear after 8 seconds
                 setTimeout(() => setActiveAlert(null), 8000);
               }
-
-              // Update Map
               prevStatuses.current.set(animal.id, newStatus);
-              break; // Handle one alert at a time per poll cycle
+              break; 
           }
-          // Also set if new animal
           prevStatuses.current.set(animal.id, newStatus);
       }
   };
@@ -141,17 +150,6 @@ const LiveTVPage = () => {
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
           osc.start(now);
           osc.stop(now + 0.5);
-          
-          // Second ding
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.frequency.setValueAtTime(1000, now + 0.2);
-          gain2.gain.setValueAtTime(0.5, now + 0.2);
-          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-          osc2.start(now + 0.2);
-          osc2.stop(now + 0.7);
       }
   };
 
@@ -167,62 +165,76 @@ const LiveTVPage = () => {
 
   if (!audioEnabled) {
       return (
-          <div className="min-h-screen bg-black flex items-center justify-center text-white">
+          <div className="min-h-screen bg-black flex items-center justify-center text-white bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black">
               <button 
                 onClick={() => setAudioEnabled(true)}
-                className="bg-primary-600 text-2xl font-bold px-8 py-4 rounded-xl animate-pulse"
+                className="bg-primary-600 hover:bg-primary-500 text-2xl font-bold px-12 py-6 rounded-2xl animate-pulse shadow-2xl shadow-primary-500/50"
               >
-                  YAYINI BAŞLAT (SES İZNİ)
+                  YAYINI BAŞLAT (TAM EKRAN)
               </button>
           </div>
       );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-2 font-sans overflow-hidden relative">
+    <div className="min-h-screen bg-gray-900 text-white font-sans overflow-hidden relative flex flex-col">
       
       {/* Header */}
-      <div className="h-20 flex justify-between items-center px-6 border-b border-gray-700 bg-gray-900 z-10">
-         <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-black text-primary-500 tracking-wider">CANLI TAKİP</h1>
+      <div className="h-24 flex justify-between items-center px-8 border-b border-gray-800 bg-gray-900 z-10 shadow-lg">
+         <div className="flex items-center gap-6">
+            <div className="bg-primary-600 text-white font-black px-4 py-2 rounded text-lg tracking-wider shadow-lg shadow-primary-500/30">CANLI</div>
+            <h1 className="text-4xl font-black text-gray-100 tracking-wide uppercase">{settings?.site_title || 'KURBAN TAKİP'}</h1>
          </div>
-         <div className="text-4xl font-mono text-gray-200 bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
-             {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+         <div className="flex items-center gap-4">
+             <div className="text-sm text-gray-400 font-bold uppercase tracking-widest">Yerel Saat</div>
+             <div className="text-5xl font-mono text-primary-400 font-bold drop-shadow-md">
+                 {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+             </div>
          </div>
       </div>
 
       {/* Main Board */}
-      <div className="grid grid-cols-5 gap-2 h-[calc(100vh-80px)] p-2">
-         <StatusColumn title="KESİM YOLU" color="bg-gray-800 border-gray-600" items={filterByStatus(SlaughterStatus.Pending)} />
-         <StatusColumn title="KESİLDİ" color="bg-red-800 border-red-600" items={filterByStatus(SlaughterStatus.Cut)} animate />
-         <StatusColumn title="PARÇALANIYOR" color="bg-orange-800 border-orange-600" items={filterByStatus(SlaughterStatus.Chopping)} />
-         <StatusColumn title="PAY EDİLİYOR" color="bg-yellow-800 border-yellow-600" items={filterByStatus(SlaughterStatus.Sharing)} />
-         <StatusColumn title="TESLİM EDİLDİ" color="bg-green-800 border-green-600" items={filterByStatus(SlaughterStatus.Delivered)} />
+      <div className="flex-1 p-4 grid grid-cols-5 gap-3 h-full overflow-hidden">
+         <StatusColumn title="KESİM SIRA" color="from-gray-700 to-gray-800" borderColor="border-gray-600" items={filterByStatus(SlaughterStatus.Pending)} />
+         <StatusColumn title="KESİLDİ" color="from-red-800 to-red-900" borderColor="border-red-600" items={filterByStatus(SlaughterStatus.Cut)} animate />
+         <StatusColumn title="PARÇALAMA" color="from-orange-700 to-orange-800" borderColor="border-orange-500" items={filterByStatus(SlaughterStatus.Chopping)} />
+         <StatusColumn title="PAYLAMA" color="from-yellow-700 to-yellow-800" borderColor="border-yellow-500" items={filterByStatus(SlaughterStatus.Sharing)} />
+         <StatusColumn title="TESLİM" color="from-green-700 to-green-800" borderColor="border-green-500" items={filterByStatus(SlaughterStatus.Delivered)} />
       </div>
 
-      {/* Announcement Overlay (Ticker or Fixed) */}
-      {announcement && (
-          <div className="absolute bottom-10 left-0 right-0 z-40">
-              <div className="bg-blue-900/90 text-white border-y-4 border-yellow-400 p-6 text-center shadow-2xl backdrop-blur-md">
-                  <h2 className="text-4xl font-black uppercase animate-pulse">{announcement}</h2>
-              </div>
+      {/* Scrolling Marquee Announcement */}
+      {showAnnouncement && (
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-blue-900 z-40 border-t-4 border-yellow-400 flex items-center shadow-2xl overflow-hidden">
+             <div className="bg-yellow-400 text-black font-black px-6 h-full flex items-center z-20 shadow-xl text-xl uppercase tracking-widest shrink-0">
+                 DUYURU
+             </div>
+             <div className="whitespace-nowrap w-full overflow-hidden flex items-center">
+                 <div className="animate-marquee inline-block text-3xl font-bold text-white px-4">
+                     {announcement}
+                 </div>
+                 {/* Duplicate for seamless loop effect visually, though standard marquee anim resets */}
+                 <div className="animate-marquee inline-block text-3xl font-bold text-white px-4" aria-hidden="true">
+                     {announcement}
+                 </div>
+             </div>
           </div>
       )}
 
       {/* ALERT POPUP */}
       {activeAlert && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
-              <div className={`bg-white text-black p-10 rounded-3xl shadow-2xl max-w-4xl w-full text-center border-8 ${activeAlert.color}`}>
-                  <h2 className="text-5xl font-bold text-gray-500 mb-4 uppercase tracking-tighter">{activeAlert.title}</h2>
-                  <div className={`text-[120px] font-black leading-none mb-8 ${activeAlert.color.replace('border', 'text')}`}>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in zoom-in duration-300 p-8">
+              <div className={`bg-white text-black p-12 rounded-[3rem] shadow-2xl max-w-5xl w-full text-center border-[12px] ${activeAlert.color}`}>
+                  <h2 className="text-6xl font-black text-gray-400 mb-6 uppercase tracking-tighter">{activeAlert.title}</h2>
+                  <div className={`text-[160px] font-black leading-none mb-10 ${activeAlert.color.replace('border', 'text')}`}>
                       #{activeAlert.animal.tag_number}
                   </div>
-                  <div className="bg-gray-100 p-6 rounded-xl">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-4 border-b border-gray-300 pb-2">HİSSEDARLAR</h3>
-                      <div className="grid grid-cols-2 gap-4 text-left">
+                  <div className="bg-gray-100 p-8 rounded-2xl border-2 border-gray-200">
+                      <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-gray-300 pb-4 tracking-widest uppercase">HİSSEDARLAR</h3>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-left">
                           {activeAlert.animal.shares?.map((s, i) => (
-                              <div key={i} className="text-xl font-bold text-gray-700">
-                                  • {s.name}
+                              <div key={i} className="text-2xl font-bold text-gray-700 flex items-center gap-3">
+                                  <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
+                                  {s.name}
                               </div>
                           ))}
                       </div>
@@ -230,20 +242,31 @@ const LiveTVPage = () => {
               </div>
           </div>
       )}
+
+      <style>{`
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+            animation: marquee 15s linear infinite;
+            min-width: 100%;
+        }
+      `}</style>
     </div>
   );
 };
 
-const StatusColumn = ({ title, color, items, animate }: any) => (
-    <div className={`rounded-xl flex flex-col ${color} border-t-4 h-full bg-opacity-30`}>
-        <div className="p-3 bg-black/40 text-center font-bold text-xl tracking-tight uppercase text-white/90">
-            {title} <span className="text-sm opacity-60 ml-2">({items.length})</span>
+const StatusColumn = ({ title, color, borderColor, items, animate }: any) => (
+    <div className={`rounded-2xl flex flex-col bg-gradient-to-b ${color} border-t-8 ${borderColor} h-full shadow-2xl overflow-hidden`}>
+        <div className="p-4 bg-black/20 text-center font-black text-2xl tracking-tight text-white/90 uppercase border-b border-white/10">
+            {title} <span className="text-lg opacity-60 ml-2 text-white/50">({items.length})</span>
         </div>
-        <div className="p-2 space-y-2 overflow-y-auto flex-1 scrollbar-hide">
+        <div className="p-3 space-y-3 overflow-y-auto flex-1 scrollbar-hide">
             {items.map((item: Animal) => (
-                <div key={item.id} className={`p-3 bg-white text-black rounded-lg shadow-md transform transition-all duration-500 ${animate ? 'animate-bounce-slow ring-4 ring-yellow-400' : ''}`}>
-                    <div className="text-4xl font-black text-center text-gray-900 tracking-tighter">#{item.tag_number}</div>
-                    <div className="text-center text-xs font-bold bg-gray-200 rounded mt-1">{item.type}</div>
+                <div key={item.id} className={`p-4 bg-white text-black rounded-xl shadow-lg transform transition-all duration-500 flex flex-col items-center justify-center min-h-[100px] ${animate ? 'animate-pulse ring-4 ring-white/50' : ''}`}>
+                    <div className="text-5xl font-black text-gray-900 tracking-tighter">#{item.tag_number}</div>
+                    {item.type && <div className="mt-1 px-2 py-0.5 bg-gray-200 rounded text-xs font-bold uppercase tracking-wider text-gray-600">{item.type}</div>}
                 </div>
             ))}
         </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Animal, ShareStatus, AppSettings } from '../types';
-import { configService } from '../services/supabaseService';
+import { Animal, ShareStatus, AppSettings, PaymentTransaction } from '../types';
+import { configService, paymentService, shareService } from '../services/supabaseService';
 import Modal from '../components/Modal';
 
 interface Props {
@@ -10,7 +10,10 @@ interface Props {
 
 const CustomersPage: React.FC<Props> = ({ animals }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerTransactions, setCustomerTransactions] = useState<PaymentTransaction[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
 
   useEffect(() => {
     configService.getSettings().then(setSettings);
@@ -34,9 +37,58 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [animals]);
 
-  const openDetail = (customer: any) => {
+  const openDetail = async (customer: any) => {
       setSelectedCustomer(customer);
+      // Fetch transactions for statement
+      const txs = await paymentService.getByShareId(customer.id);
+      setCustomerTransactions(txs);
   };
+
+  const handleRefund = async () => {
+      if (!selectedCustomer || !refundAmount) return;
+      
+      const amount = Number(refundAmount);
+      if (amount > selectedCustomer.amount_paid) {
+          alert("İade tutarı, ödenen tutardan fazla olamaz!");
+          return;
+      }
+
+      try {
+          const newPaid = selectedCustomer.amount_paid - amount;
+          
+          await shareService.update(selectedCustomer.id, {
+              amount_paid: newPaid,
+              status: newPaid < selectedCustomer.amount_agreed ? ShareStatus.Partial : ShareStatus.Paid
+          });
+
+          await paymentService.create({
+              share_id: selectedCustomer.id,
+              amount: amount,
+              type: 'REFUND',
+              description: 'Ödeme İptali / İade'
+          });
+
+          alert("İade/İptal işlemi başarılı.");
+          setShowRefundModal(false);
+          setRefundAmount('');
+          // Refresh handled by parent usually, but here we might need reload or better state management
+          window.location.reload(); 
+      } catch (e) {
+          alert("İşlem hatası");
+      }
+  };
+
+  // Calculate opening balance based on Total Paid - Sum of logged transactions
+  // This handles cases where data existed before transaction logging was added
+  const loggedTotal = customerTransactions
+        .filter(t => t.type === 'PAYMENT')
+        .reduce((sum, t) => sum + t.amount, 0) 
+        - 
+        customerTransactions
+        .filter(t => t.type === 'REFUND')
+        .reduce((sum, t) => sum + t.amount, 0);
+  
+  const openingBalance = selectedCustomer ? selectedCustomer.amount_paid - loggedTotal : 0;
 
   return (
     <div>
@@ -96,19 +148,15 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                      </td>
                    </tr>
                  ))}
-                 {customers.length === 0 && (
-                   <tr><td colSpan={6} className="p-8 text-center text-gray-400">Kayıtlı müşteri bulunamadı.</td></tr>
-                 )}
                </tbody>
              </table>
          </div>
        </div>
 
-       {/* Detail Modal */}
-       <Modal isOpen={!!selectedCustomer} onClose={() => setSelectedCustomer(null)} title="Hesap Ekstresi">
+       {/* Statement Modal */}
+       <Modal isOpen={!!selectedCustomer && !showRefundModal} onClose={() => setSelectedCustomer(null)} title="Hesap Ekstresi">
            {selectedCustomer && (
                <div className="bg-white text-gray-900" id="statement-area">
-                   {/* Header */}
                    <div className="border-b-2 border-gray-800 pb-6 mb-6 flex justify-between items-start">
                        <div>
                            <h1 className="text-3xl font-bold uppercase tracking-wide text-primary-700">Hesap Ekstresi</h1>
@@ -120,25 +168,34 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                        </div>
                    </div>
 
-                   {/* Customer Info */}
-                   <div className="bg-gray-50 p-6 rounded-lg mb-8 border border-gray-100">
-                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-2">Sayın Müşteri</h4>
-                       <h2 className="text-2xl font-bold">{selectedCustomer.name}</h2>
-                       <p className="text-gray-600 font-mono">{selectedCustomer.phone}</p>
+                   <div className="bg-gray-50 p-6 rounded-lg mb-8 border border-gray-100 flex justify-between items-center">
+                       <div>
+                           <h4 className="text-xs font-bold uppercase text-gray-400 mb-2">Sayın Müşteri</h4>
+                           <h2 className="text-2xl font-bold">{selectedCustomer.name}</h2>
+                           <p className="text-gray-600 font-mono">{selectedCustomer.phone}</p>
+                       </div>
+                       <div className="no-print">
+                           <button 
+                             onClick={() => setShowRefundModal(true)}
+                             className="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-xs font-bold border border-red-200"
+                           >
+                               İade / İptal Yap
+                           </button>
+                       </div>
                    </div>
 
-                   {/* Transaction Table */}
                    <div className="mb-8">
                        <table className="w-full border-collapse">
                            <thead>
                                <tr className="border-b border-gray-300">
-                                   <th className="text-left py-2 font-bold text-gray-600">Açıklama</th>
+                                   <th className="text-left py-2 font-bold text-gray-600">Tarih / Açıklama</th>
                                    <th className="text-right py-2 font-bold text-gray-600">Borç</th>
                                    <th className="text-right py-2 font-bold text-gray-600">Ödenen</th>
                                    <th className="text-right py-2 font-bold text-gray-600">Bakiye</th>
                                </tr>
                            </thead>
                            <tbody className="text-sm">
+                               {/* Initial Agreement */}
                                <tr className="border-b border-gray-100">
                                    <td className="py-3">
                                        <span className="block font-bold text-gray-800">Kurban Hissesi Satışı</span>
@@ -148,14 +205,31 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                                    <td className="text-right py-3">0 TL</td>
                                    <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>
                                </tr>
-                               {selectedCustomer.amount_paid > 0 && (
-                                   <tr className="border-b border-gray-100 bg-green-50/50">
-                                       <td className="py-3 pl-2 italic">Yapılan Ödemeler Toplamı</td>
+                               
+                               {/* Opening Balance (Old Payments) */}
+                               {openingBalance > 0 && (
+                                   <tr className="border-b border-gray-100 bg-gray-50/30">
+                                       <td className="py-3 pl-2 italic">Devreden Ödeme Bakiyesi</td>
                                        <td className="text-right py-3"></td>
-                                       <td className="text-right py-3 text-green-700 font-bold">-{selectedCustomer.amount_paid} TL</td>
+                                       <td className="text-right py-3 text-green-700">{openingBalance} TL</td>
                                        <td className="text-right py-3"></td>
                                    </tr>
                                )}
+
+                               {/* Transaction Log */}
+                               {customerTransactions.map((tx) => (
+                                   <tr key={tx.id} className={`border-b border-gray-100 ${tx.type === 'REFUND' ? 'bg-red-50' : 'bg-green-50/50'}`}>
+                                       <td className="py-3 pl-2">
+                                           <div className="font-bold">{new Date(tx.created_at).toLocaleDateString('tr-TR')}</div>
+                                           <div className="text-xs text-gray-500">{tx.description || (tx.type === 'REFUND' ? 'İade/İptal' : 'Ödeme')}</div>
+                                       </td>
+                                       <td className="text-right py-3"></td>
+                                       <td className={`text-right py-3 font-bold ${tx.type === 'REFUND' ? 'text-red-600' : 'text-green-700'}`}>
+                                           {tx.type === 'REFUND' ? '-' : ''}{tx.amount} TL
+                                       </td>
+                                       <td className="text-right py-3"></td>
+                                   </tr>
+                               ))}
                            </tbody>
                            <tfoot className="border-t-2 border-gray-800">
                                <tr>
@@ -168,7 +242,6 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                        </table>
                    </div>
 
-                   {/* Bank Info */}
                     {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
                         <div className="mt-8 p-4 border border-dashed border-gray-300 rounded bg-gray-50">
                             <h4 className="font-bold mb-3 text-sm uppercase text-gray-500 border-b pb-1">Banka Hesap Bilgilerimiz</h4>
@@ -184,7 +257,6 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                         </div>
                     )}
 
-                   {/* Print Button */}
                    <div className="mt-8 flex justify-end no-print">
                         <style>{`
                             @media print {
@@ -195,12 +267,33 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                             }
                         `}</style>
                        <button onClick={() => window.print()} className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-black font-bold flex items-center gap-2 shadow-lg">
-                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                            Yazdır (A4)
                        </button>
                    </div>
                </div>
            )}
+       </Modal>
+
+       {/* Refund Modal */}
+       <Modal isOpen={showRefundModal} onClose={() => setShowRefundModal(false)} title="Ödeme İade / İptal">
+           <div className="space-y-4">
+               <div className="bg-red-50 p-4 rounded text-red-800 text-sm">
+                   Bu işlem müşterinin "Ödenen" tutarını azaltır ve ekstreye "İade" olarak yansır.
+               </div>
+               <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">İptal Edilecek Tutar</label>
+                   <input 
+                    type="number" 
+                    value={refundAmount} 
+                    onChange={e => setRefundAmount(e.target.value)}
+                    className="w-full border p-2 rounded"
+                    max={selectedCustomer?.amount_paid}
+                   />
+               </div>
+               <button onClick={handleRefund} className="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700">
+                   İşlemi Onayla
+               </button>
+           </div>
        </Modal>
     </div>
   );
