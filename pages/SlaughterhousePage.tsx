@@ -115,7 +115,7 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
                             {animals.filter(a => a.slaughter_status === col.id).map(animal => (
                                 <div key={animal.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group">
                                     <div className="flex justify-between items-start mb-3">
-                                        <span className="text-2xl font-black text-slate-800 dark:text-white">#{animal.tag_number}</span>
+                                        <span className="text-3xl font-black text-slate-800 dark:text-white">#{animal.tag_number}</span>
                                         <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">{animal.type}</span>
                                     </div>
                                     <div className="flex gap-2">
