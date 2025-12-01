@@ -20,7 +20,7 @@ function App() {
   // Global State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
-  const [settings, setSettings] = useState<AppSettings>({ theme: 'light', id: 0, admin_password: 'admin123' }); // Set default to prevent race condition logic
+  const [settings, setSettings] = useState<AppSettings>({ theme: 'light', id: 0, admin_password: 'admin123' }); 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -43,10 +43,8 @@ function App() {
         const years = await configService.getYears();
         if (years.length > 0) {
           setAvailableYears(years);
-          // If selected year not in list, pick first
           if (!years.includes(selectedYear)) setSelectedYear(years[0]);
         } else {
-            // First run, add current year
             await configService.addYear(selectedYear);
         }
 
@@ -62,7 +60,7 @@ function App() {
     };
 
     if (!isTVMode) init();
-    else setLoading(false); // If TV mode, stop loading immediately (TV page fetches its own data)
+    else setLoading(false);
   }, []);
 
   // Fetch Animals when Year changes or Auth changes
@@ -74,7 +72,6 @@ function App() {
 
   const loadAnimals = async () => {
     try {
-      // Don't set full app loading for year switch, maybe local loading
       const data = await animalService.getAll(selectedYear);
       setAnimals(data);
     } catch (e) {
@@ -127,10 +124,10 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            <p className="text-gray-500 font-medium">Sistem Yükleniyor...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="text-slate-500 font-medium">Sistem Yükleniyor...</p>
         </div>
       </div>
     );
@@ -148,13 +145,19 @@ function App() {
     switch (activePage) {
       case 'dashboard':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold dark:text-white">Genel Durum - {selectedYear}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-8">
+            <div className="flex justify-between items-end border-b border-slate-200 pb-4">
+                <div>
+                   <h2 className="text-2xl font-bold text-slate-800">Genel Durum</h2>
+                   <p className="text-slate-500 text-sm mt-1">{selectedYear} Sezonu Özet İstatistikleri</p>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard title="Toplam Hayvan" value={stats.totalAnimals} icon={TagIcon} color="blue" />
-              <StatCard title="Satılan Hisse" value={stats.totalSoldShares} icon={UsersIcon} color="green" />
+              <StatCard title="Satılan Hisse" value={stats.totalSoldShares} icon={UsersIcon} color="indigo" />
               <StatCard title="Kasa (Tahsilat)" value={stats.totalRevenue} icon={WalletIcon} color="emerald" isCurrency />
-              <StatCard title="Bekleyen Alacak" value={stats.totalPending} icon={CheckCircleIcon} color="orange" isCurrency />
+              <StatCard title="Bekleyen Alacak" value={stats.totalPending} icon={CheckCircleIcon} color="amber" isCurrency />
             </div>
           </div>
         );
@@ -190,24 +193,24 @@ function App() {
   );
 }
 
-// Simple Stat Card Component
+// Simple Stat Card Component (White/Blue Theme)
 const StatCard = ({ title, value, icon: Icon, color, isCurrency }: any) => {
   const colors: any = {
     blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
     emerald: 'bg-emerald-50 text-emerald-600',
-    orange: 'bg-orange-50 text-orange-600',
+    amber: 'bg-amber-50 text-amber-600',
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-lg ${colors[color]} dark:bg-opacity-10`}>
+        <div className={`p-4 rounded-xl ${colors[color]}`}>
           <Icon className="w-6 h-6" />
         </div>
         <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{title}</p>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <p className="text-sm text-slate-500 font-medium mb-1">{title}</p>
+          <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
             {isCurrency 
               ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value)
               : value}

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kurban Satış Sistemi</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Segoe UI', 'sans-serif'],
+              sans: ['Inter', 'sans-serif'],
             },
             colors: {
               primary: {
@@ -26,6 +26,9 @@
                 700: '#1d4ed8',
                 800: '#1e40af',
                 900: '#1e3a8a',
+              },
+              slate: {
+                850: '#151f32', // Deep blue-gray for sidebar
               }
             }
           }
@@ -34,44 +37,32 @@
     </script>
     <style>
       body {
-        font-family: 'Segoe UI', sans-serif;
-        background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        overflow: hidden; /* Hide body scroll, handle in app container */
+        font-family: 'Inter', sans-serif;
+        background-color: #f1f5f9; /* Slate 100 */
+        color: #1e293b; /* Slate 800 */
+        overflow: hidden;
       }
       
-      /* Custom Scrollbar */
+      /* Custom Blue Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
+        background: #94a3b8;
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: #3b82f6;
       }
       
-      .mica-effect {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(20px);
-      }
-      .dark .mica-effect {
-        background: rgba(30, 41, 59, 0.85);
-      }
-      
-      .acrylic-sidebar {
-        background: rgba(248, 250, 252, 0.7);
-        backdrop-filter: blur(30px) saturate(120%);
-      }
-      .dark .acrylic-sidebar {
-        background: rgba(15, 23, 42, 0.7);
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
       }
     </style>
   <script type="importmap">

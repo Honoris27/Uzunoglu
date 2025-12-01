@@ -107,7 +107,6 @@ const LiveTVPage = () => {
       gain.connect(ctx.destination);
       const now = ctx.currentTime;
       
-      // Simple tone logic based on types (simplified for brevity)
       osc.frequency.setValueAtTime(type === 'gong' ? 100 : 800, now);
       gain.gain.setValueAtTime(0.5, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 1);
@@ -125,18 +124,18 @@ const LiveTVPage = () => {
       return animals.filter(a => a.slaughter_status === status).sort((a, b) => {
             const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
             const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
-            if (status === SlaughterStatus.Pending) return timeA - timeB; 
             return timeA - timeB;
       });
   };
 
   if (!audioEnabled) {
       return (
-          <div className="min-h-screen flex items-center justify-center bg-black text-white font-sans">
-               <div className="text-center space-y-8 animate-in fade-in zoom-in duration-500">
-                  <h1 className="text-8xl font-black tracking-tighter">CANLI TAKİP</h1>
-                  <button onClick={() => setAudioEnabled(true)} className="border border-white/20 hover:bg-white hover:text-black px-12 py-4 rounded-full text-xl font-bold transition-all tracking-widest uppercase">
-                      Yayını Başlat
+          <div className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-800 font-sans">
+               <div className="text-center space-y-8 animate-in fade-in zoom-in duration-500 bg-white p-16 rounded-3xl shadow-2xl border border-slate-200">
+                  <h1 className="text-6xl font-black tracking-tight text-blue-900">CANLI TAKİP</h1>
+                  <p className="text-slate-500 text-xl">Yayını başlatmak için butona tıklayın</p>
+                  <button onClick={() => setAudioEnabled(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 rounded-full text-xl font-bold transition-all shadow-lg hover:shadow-blue-200 uppercase tracking-wider">
+                      Sistemi Başlat
                   </button>
                </div>
           </div>
@@ -144,31 +143,37 @@ const LiveTVPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-hidden flex flex-col relative selection:bg-white selection:text-black">
-      {/* Minimal Header */}
-      <div className="h-20 flex justify-between items-center px-8 border-b border-white/10 shrink-0">
-         <div className="flex items-center gap-4">
-             <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
-             <h1 className="text-2xl font-bold tracking-widest uppercase">{settings?.site_title || 'KURBAN'}</h1>
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden flex flex-col relative">
+      {/* Header */}
+      <div className="h-24 bg-white flex justify-between items-center px-10 border-b border-slate-200 shrink-0 shadow-sm z-10">
+         <div className="flex items-center gap-6">
+             {settings?.logo_url && <img src={settings.logo_url} className="h-12 w-auto object-contain" />}
+             <div className="border-l-2 border-slate-200 pl-6 h-12 flex flex-col justify-center">
+                 <h1 className="text-3xl font-black tracking-tight text-blue-900 uppercase leading-none mb-1">{settings?.site_title || 'KURBAN'}</h1>
+                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Canlı Takip Sistemi</span>
+             </div>
          </div>
-         <div className="font-mono text-xl text-gray-400">
-             {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+         <div className="flex items-center gap-4 bg-slate-100 px-6 py-3 rounded-xl border border-slate-200">
+             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+             <div className="font-mono text-2xl font-bold text-slate-700">
+                 {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+             </div>
          </div>
       </div>
 
       {/* Main Grid */}
-      <div className="flex-1 p-6 grid grid-cols-5 gap-px bg-white/5">
-         <TVColumn title="SIRA" items={getSortedAnimals(SlaughterStatus.Pending)} />
-         <TVColumn title="KESİM" items={getSortedAnimals(SlaughterStatus.Cut)} highlight />
-         <TVColumn title="PARÇALAMA" items={getSortedAnimals(SlaughterStatus.Chopping)} />
-         <TVColumn title="PAYLAMA" items={getSortedAnimals(SlaughterStatus.Sharing)} />
-         <TVColumn title="TESLİM" items={getSortedAnimals(SlaughterStatus.Delivered)} />
+      <div className="flex-1 p-6 grid grid-cols-5 gap-4">
+         <TVColumn title="SIRADA" items={getSortedAnimals(SlaughterStatus.Pending)} color="bg-slate-200" />
+         <TVColumn title="KESİM" items={getSortedAnimals(SlaughterStatus.Cut)} color="bg-red-100 text-red-800" highlight />
+         <TVColumn title="PARÇALAMA" items={getSortedAnimals(SlaughterStatus.Chopping)} color="bg-orange-100 text-orange-800" />
+         <TVColumn title="PAYLAMA" items={getSortedAnimals(SlaughterStatus.Sharing)} color="bg-blue-100 text-blue-800" />
+         <TVColumn title="TESLİM" items={getSortedAnimals(SlaughterStatus.Delivered)} color="bg-green-100 text-green-800" />
       </div>
 
       {/* Ticker */}
       {showAnnouncement && (
-          <div className="absolute bottom-10 left-0 right-0 bg-white text-black py-4 z-50 overflow-hidden transform -rotate-1 shadow-2xl">
-             <div className="animate-marquee whitespace-nowrap text-5xl font-black uppercase tracking-tight">
+          <div className="absolute bottom-0 left-0 right-0 bg-blue-900 text-white py-4 z-50 overflow-hidden shadow-2xl border-t-4 border-yellow-400">
+             <div className="animate-marquee whitespace-nowrap text-4xl font-bold uppercase tracking-wide">
                  {announcement} &nbsp;&nbsp;&nbsp;&nbsp; {announcement} &nbsp;&nbsp;&nbsp;&nbsp; {announcement}
              </div>
           </div>
@@ -176,29 +181,33 @@ const LiveTVPage = () => {
 
       {/* Alert Overlay */}
       {activeAlert && (
-          <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-in fade-in duration-300">
-              <div className="w-full max-w-7xl p-8 flex flex-col md:flex-row gap-12 items-center justify-center">
+          <div className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-xl flex items-center justify-center animate-in fade-in duration-300">
+              <div className="w-full max-w-6xl p-12 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col md:flex-row gap-16 items-center justify-center relative overflow-hidden">
+                   <div className="absolute top-0 left-0 w-full h-4 bg-blue-600"></div>
+                   
                    {/* Left: Tag Info */}
-                   <div className="text-center md:text-left space-y-4">
-                       <div className="inline-block bg-white text-black px-6 py-2 text-2xl font-bold uppercase tracking-widest mb-4">
+                   <div className="text-center md:text-left space-y-2">
+                       <div className="inline-block bg-blue-100 text-blue-800 px-8 py-3 rounded-full text-2xl font-black uppercase tracking-widest mb-6">
                            {activeAlert.title}
                        </div>
-                       <h1 className="text-[180px] font-black leading-none tracking-tighter text-white">
+                       <h1 className="text-[160px] font-black leading-none tracking-tighter text-slate-900">
                            #{activeAlert.animal.tag_number}
                        </h1>
+                       <p className="text-2xl text-slate-400 font-medium">Küpe Numaralı Kurban</p>
                    </div>
 
                    {/* Right: Shareholders */}
-                   <div className="flex-1 border-l border-white/20 pl-12">
-                       <h3 className="text-gray-500 font-bold uppercase tracking-[0.3em] mb-8 text-xl">Hissedarlar</h3>
-                       <div className="flex flex-wrap gap-4">
+                   <div className="flex-1 border-l-4 border-slate-100 pl-16 py-4">
+                       <h3 className="text-slate-400 font-bold uppercase tracking-[0.2em] mb-10 text-xl border-b border-slate-100 pb-4">Hissedarlar</h3>
+                       <div className="grid grid-cols-1 gap-6">
                            {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
                                activeAlert.animal.shares.map((s, i) => (
-                                   <div key={i} className="text-4xl font-bold text-gray-300 leading-relaxed">
-                                       {s.name} <span className="text-gray-700 mx-2">•</span>
+                                   <div key={i} className="text-4xl font-bold text-slate-800 flex items-center gap-4">
+                                       <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                       {s.name}
                                    </div>
                                ))
-                           ) : <span className="text-gray-600 italic">...</span>}
+                           ) : <span className="text-slate-400 italic">...</span>}
                        </div>
                    </div>
               </div>
@@ -212,20 +221,26 @@ const LiveTVPage = () => {
   );
 };
 
-const TVColumn = ({ title, items, highlight }: any) => (
-    <div className={`h-full flex flex-col bg-[#0a0a0a] ${highlight ? 'bg-[#0f0f0f]' : ''}`}>
-        <div className="p-6 border-b border-white/10">
-            <h2 className={`text-xl font-bold uppercase tracking-[0.2em] text-center ${highlight ? 'text-white' : 'text-gray-500'}`}>
-                {title} <span className="ml-2 text-sm text-gray-700">({items.length})</span>
+const TVColumn = ({ title, items, color, highlight }: any) => (
+    <div className="h-full flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200">
+        <div className={`p-5 text-center border-b border-slate-100 ${highlight ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>
+            <h2 className="text-xl font-black uppercase tracking-widest">
+                {title}
             </h2>
+            <div className={`text-xs font-bold mt-1 ${highlight ? 'text-blue-200' : 'text-slate-400'}`}>{items.length} ADET</div>
         </div>
-        <div className="flex-1 p-4 space-y-4 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 p-3 space-y-3 overflow-y-auto bg-slate-50/50">
             {items.map((item: Animal) => (
-                <div key={item.id} className="bg-[#111] p-6 border-l-4 border-white/10 hover:border-white transition-all animate-in slide-in-from-bottom-4 fade-in duration-500">
-                    <div className="text-6xl font-black tracking-tighter text-white">#{item.tag_number}</div>
-                    {item.type && <div className="text-gray-600 text-xs uppercase font-bold mt-2 tracking-widest">{item.type}</div>}
+                <div key={item.id} className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 flex items-center justify-between animate-in slide-in-from-bottom-2 fade-in duration-300">
+                    <span className="text-4xl font-black text-slate-800 tracking-tighter">#{item.tag_number}</span>
+                    {item.type && <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase">{item.type}</span>}
                 </div>
             ))}
+            {items.length === 0 && (
+                <div className="h-full flex items-center justify-center opacity-20">
+                    <span className="text-4xl font-black text-slate-300">---</span>
+                </div>
+            )}
         </div>
     </div>
 );
