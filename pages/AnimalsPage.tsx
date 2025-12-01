@@ -87,17 +87,29 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // DUPLICATE CHECK
+      const normalizedTag = formData.tag_number.trim().toUpperCase();
+      const isDuplicate = animals.some(a => 
+        a.tag_number.toUpperCase() === normalizedTag && 
+        a.id !== editingAnimal?.id
+      );
+
+      if (isDuplicate) {
+        alert("HATA: Bu Küpe Numarası zaten kayıtlı! Lütfen farklı bir numara giriniz.");
+        return;
+      }
+
       const finalImage = formData.image_url || settings?.default_image_url;
 
       const payload = {
-        tag_number: formData.tag_number,
+        tag_number: normalizedTag, // Save as uppercase
         type: formData.type,
         weight_kg: 0, 
         total_price: Number(formData.total_price),
         notes: formData.notes,
         image_url: finalImage,
         year: selectedYear,
-        slaughter_status: SlaughterStatus.Barn // Default to Barn
+        slaughter_status: editingAnimal ? editingAnimal.slaughter_status : SlaughterStatus.Barn // Default to Barn
       };
 
       if (editingAnimal) {
@@ -293,6 +305,7 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
              <div>
                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Küpe No</label>
                  <input required value={formData.tag_number} onChange={e => setFormData({...formData, tag_number: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+                 <p className="text-[10px] text-gray-500 mt-1">Bu yıl için benzersiz bir numara giriniz.</p>
              </div>
              <div>
                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Tür</label>

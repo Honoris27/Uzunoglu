@@ -102,19 +102,19 @@ const LiveTVPage = () => {
                       soundType = 'gong';
                       break;
                   case SlaughterStatus.Chopping:
-                      title = "PARÇALAMA İŞLEMİ";
+                      title = "PARÇALANIYOR";
                       message = `${animal.tag_number} nolu kurban PARÇALANIYOR.`;
                       color = "bg-orange-600";
                       soundType = 'horn';
                       break;
                   case SlaughterStatus.Sharing:
-                      title = "HİSSE PAYLAŞIMI";
+                      title = "PAY EDİLİYOR";
                       message = `${animal.tag_number} nolu kurban PAY EDİLİYOR.`;
                       color = "bg-yellow-500";
                       soundType = 'whistle';
                       break;
                   case SlaughterStatus.Delivered:
-                      title = "TESLİM EDİLİYOR";
+                      title = "TESLİM EDİLDİ";
                       message = `${animal.tag_number} nolu kurban TESLİM EDİLMİŞTİR.`;
                       color = "bg-emerald-600";
                       soundType = 'bell';
@@ -132,8 +132,8 @@ const LiveTVPage = () => {
                   setTimeout(() => speak(message), 1000);
               }
               
-              // Auto close alert
-              setTimeout(() => setActiveAlert(null), 8000);
+              // Auto close alert - Display longer for readability
+              setTimeout(() => setActiveAlert(null), 10000);
               
               break; // Only one alert at a time
           }
@@ -227,22 +227,22 @@ const LiveTVPage = () => {
     <div className="min-h-screen bg-[#050505] text-white font-sans overflow-hidden relative flex flex-col selection:bg-red-500 selection:text-white">
       
       {/* Broadcast Header */}
-      <div className="h-28 flex justify-between items-center px-10 bg-[#0a0a0a] border-b border-gray-800 z-10 shadow-2xl shrink-0 relative overflow-hidden">
+      <div className="h-24 flex justify-between items-center px-10 bg-[#0a0a0a] border-b border-gray-800 z-10 shadow-2xl shrink-0 relative overflow-hidden">
          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 via-purple-600 to-blue-600"></div>
          
          <div className="flex items-center gap-8 relative z-10">
-             <div className="flex flex-col items-center justify-center w-20 h-20 bg-black rounded-2xl border border-gray-800 shadow-inner">
-                 <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse shadow-[0_0_15px_rgba(220,38,38,1)]"></div>
-                 <span className="text-[10px] font-bold text-gray-500 mt-2 tracking-widest">LIVE</span>
+             <div className="flex flex-col items-center justify-center w-16 h-16 bg-black rounded-2xl border border-gray-800 shadow-inner">
+                 <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_15px_rgba(220,38,38,1)]"></div>
+                 <span className="text-[9px] font-bold text-gray-500 mt-1 tracking-widest">LIVE</span>
              </div>
              <div>
-                <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic">{settings?.site_title || 'KURBAN 2024'}</h1>
-                <p className="text-sm text-gray-400 font-bold tracking-[0.6em] uppercase mt-1 pl-1">Canlı Kesim Takip Ekranı</p>
+                <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">{settings?.site_title || 'KURBAN 2024'}</h1>
+                <p className="text-xs text-gray-400 font-bold tracking-[0.6em] uppercase mt-1 pl-1">Canlı Kesim Takip Ekranı</p>
              </div>
          </div>
          <div className="flex items-center gap-8">
              <div className="text-right hidden md:block bg-gray-900/50 px-6 py-2 rounded-xl border border-gray-800 backdrop-blur-sm">
-                 <div className="text-5xl font-mono text-white font-bold tracking-tighter">
+                 <div className="text-4xl font-mono text-white font-bold tracking-tighter">
                      {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                  </div>
              </div>
@@ -250,7 +250,7 @@ const LiveTVPage = () => {
       </div>
 
       {/* Main Board - Pillars Layout */}
-      <div className="flex-1 p-8 grid grid-cols-5 gap-6 h-full overflow-hidden relative">
+      <div className="flex-1 p-6 grid grid-cols-5 gap-4 h-full overflow-hidden relative">
          {/* Background Grid */}
          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>
 
@@ -278,51 +278,44 @@ const LiveTVPage = () => {
           </div>
       )}
 
-      {/* ALERT POPUP */}
+      {/* ALERT POPUP - FULLSCREEN IDENTITY CARD */}
       {activeAlert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in zoom-in duration-300 p-8">
-              <div className="relative w-full max-w-6xl">
-                  <div className={`relative bg-[#111] text-white rounded-[3rem] shadow-[0_0_150px_rgba(255,255,255,0.2)] overflow-hidden border-4 border-gray-800`}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in zoom-in duration-500">
+              <div className="w-full h-full flex items-center justify-center p-8">
+                  <div className={`relative w-full max-w-7xl aspect-video bg-[#050505] rounded-[3rem] overflow-hidden border-8 ${activeAlert.color.replace('bg-', 'border-')} shadow-[0_0_100px_rgba(255,255,255,0.1)]`}>
                       
-                      {/* Header Strip */}
-                      <div className={`${activeAlert.color} h-40 flex items-center justify-center relative overflow-hidden`}>
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30"></div>
-                          <div className="text-center z-10">
-                              <span className="block text-white text-6xl font-black uppercase tracking-[0.2em] drop-shadow-2xl">{activeAlert.title}</span>
+                      {/* Top Header - Massive Tag Number */}
+                      <div className={`h-[35%] flex flex-col items-center justify-center ${activeAlert.color} relative overflow-hidden`}>
+                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 animate-pulse"></div>
+                          <h2 className="text-[200px] font-black leading-none text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] tracking-tighter">
+                              #{activeAlert.animal.tag_number}
+                          </h2>
+                          <div className="absolute bottom-6 bg-black/30 px-8 py-2 rounded-full backdrop-blur-md border border-white/20">
+                               <span className="text-3xl font-bold text-white uppercase tracking-[0.3em]">{activeAlert.title}</span>
                           </div>
                       </div>
 
-                      <div className="p-12 flex flex-col items-center bg-gradient-to-b from-[#111] to-black">
-                           
-                           {/* Tag Number Box */}
-                          <div className="mb-12 text-center transform scale-110">
-                              <span className="block text-xl font-bold text-gray-500 uppercase tracking-[0.5em] mb-4">KÜPE NO</span>
-                              <div className="text-[160px] font-black leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 drop-shadow-xl border border-gray-800 px-16 py-4 rounded-[2rem] bg-black/50 shadow-inner">
-                                  #{activeAlert.animal.tag_number}
-                              </div>
-                              <p className="text-2xl text-gray-300 mt-6 font-light italic tracking-wider">
-                                  {activeAlert.message}
-                              </p>
-                          </div>
+                      {/* Bottom Content - Shareholders */}
+                      <div className="h-[65%] p-12 bg-gradient-to-b from-[#111] to-black flex flex-col items-center justify-center relative">
+                          {/* Decorative Lines */}
+                          <div className="absolute top-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                          
+                          <h3 className="text-2xl font-bold text-gray-500 uppercase tracking-[0.5em] mb-10 flex items-center gap-4">
+                              <span className="w-12 h-0.5 bg-gray-700"></span>
+                              HİSSEDAR LİSTESİ
+                              <span className="w-12 h-0.5 bg-gray-700"></span>
+                          </h3>
 
-                          {/* Shareholders List */}
-                          <div className="w-full bg-[#0a0a0a] p-10 rounded-[2rem] border border-gray-800 shadow-inner relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-700 to-transparent opacity-50"></div>
-                              <h3 className="text-3xl font-bold text-gray-500 mb-8 flex items-center justify-center gap-6 uppercase tracking-[0.2em]">
-                                  HİSSEDAR LİSTESİ
-                              </h3>
-                              
-                              <div className="flex flex-wrap justify-center gap-6">
-                                  {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
-                                      activeAlert.animal.shares.map((s, i) => (
-                                        <div key={i} className="bg-[#1a1a1a] px-8 py-5 rounded-2xl border-l-4 border-gray-600 shadow-lg min-w-[240px] text-center transform hover:scale-105 transition-transform">
-                                            <div className="text-3xl font-bold text-gray-200">{s.name}</div>
-                                        </div>
-                                      ))
-                                  ) : (
-                                      <div className="text-center text-gray-600 text-2xl italic py-4 w-full">Hissedar bilgisi bulunamadı.</div>
-                                  )}
-                              </div>
+                          <div className="flex flex-wrap justify-center content-center gap-6 w-full max-w-6xl">
+                              {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
+                                  activeAlert.animal.shares.map((s, i) => (
+                                    <div key={i} className="bg-[#1a1a1a] px-10 py-6 rounded-2xl border-l-8 border-gray-600 shadow-2xl min-w-[300px] text-center transform animate-in slide-in-from-bottom-8 fade-in duration-700" style={{ animationDelay: `${i * 100}ms` }}>
+                                        <div className="text-4xl font-bold text-gray-100">{s.name}</div>
+                                    </div>
+                                  ))
+                              ) : (
+                                  <div className="text-center text-gray-600 text-3xl italic">Hissedar bilgisi bulunamadı.</div>
+                              )}
                           </div>
                       </div>
                   </div>
@@ -340,9 +333,9 @@ const LiveTVPage = () => {
             min-width: 100%;
             padding-right: 50vw;
         }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #111; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
       `}</style>
     </div>
@@ -350,33 +343,33 @@ const LiveTVPage = () => {
 };
 
 const StatusColumn = ({ title, color, borderColor, titleColor, items, animate, glow, icon }: any) => (
-    <div className={`flex flex-col bg-gradient-to-b ${color} rounded-3xl border-t-4 ${borderColor} h-full shadow-2xl overflow-hidden relative backdrop-blur-sm ${glow || ''}`}>
-        <div className={`p-5 text-center flex flex-col items-center border-b border-white/5 relative z-10`}>
-             <div className="text-4xl mb-2 filter drop-shadow-lg">{icon}</div>
-             <div className={`font-black text-2xl tracking-[0.2em] uppercase ${titleColor} drop-shadow-md`}>{title}</div>
+    <div className={`flex flex-col bg-gradient-to-b ${color} rounded-2xl border-t-2 ${borderColor} h-full shadow-2xl overflow-hidden relative backdrop-blur-sm ${glow || ''}`}>
+        <div className={`p-3 text-center flex flex-col items-center border-b border-white/5 relative z-10`}>
+             <div className="text-2xl mb-1 filter drop-shadow-lg">{icon}</div>
+             <div className={`font-black text-xl tracking-[0.1em] uppercase ${titleColor} drop-shadow-md`}>{title}</div>
         </div>
         
-        <div className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar flex flex-col justify-start relative z-10">
+        <div className="flex-1 p-2 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-start relative z-10">
             {items.map((item: Animal, idx: number) => (
-                <div key={item.id} className={`p-5 bg-[#0f0f0f] rounded-2xl shadow-lg border border-gray-800 transform transition-all duration-500 flex flex-col items-center justify-center min-h-[110px] relative overflow-hidden group hover:border-gray-600 ${animate && idx === 0 ? 'ring-2 ring-red-600 shadow-[0_0_20px_rgba(220,38,38,0.4)] scale-105' : ''}`}>
-                    <div className="absolute top-2 left-3 text-xs font-bold text-gray-600">#{idx + 1}</div>
-                    <div className="text-6xl font-black text-white tracking-tighter z-10 drop-shadow-xl">#{item.tag_number}</div>
-                    {item.type && <div className="mt-2 px-3 py-0.5 bg-gray-800 rounded text-[10px] font-bold uppercase tracking-widest text-gray-400 z-10 border border-gray-700">{item.type}</div>}
+                <div key={item.id} className={`p-3 bg-[#0f0f0f] rounded-xl shadow-lg border border-gray-800 transform transition-all duration-300 flex flex-col items-center justify-center min-h-[80px] relative overflow-hidden group hover:border-gray-600 ${animate && idx === 0 ? 'ring-1 ring-red-600 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : ''}`}>
+                    <div className="absolute top-1 left-2 text-[10px] font-bold text-gray-600">#{idx + 1}</div>
+                    <div className="text-4xl font-black text-white tracking-tighter z-10 drop-shadow-xl">#{item.tag_number}</div>
+                    {item.type && <div className="mt-1 px-2 py-0.5 bg-gray-800 rounded text-[9px] font-bold uppercase tracking-widest text-gray-400 z-10 border border-gray-700">{item.type}</div>}
                     
                     {/* Shareholder count badge */}
-                    <div className="absolute top-2 right-2 bg-gray-800 text-gray-400 text-[10px] font-bold px-2 py-1 rounded border border-gray-700">
-                        {item.shares?.length || 0} H
+                    <div className="absolute top-1 right-2 bg-gray-800 text-gray-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-gray-700">
+                        {item.shares?.length || 0}
                     </div>
                 </div>
             ))}
             {items.length === 0 && (
                 <div className="h-full flex items-center justify-center opacity-20">
-                    <span className="text-4xl grayscale">{icon}</span>
+                    <span className="text-3xl grayscale">{icon}</span>
                 </div>
             )}
         </div>
-        <div className="p-3 text-center text-[10px] font-mono text-white/20 bg-black/40 tracking-widest">
-            TOPLAM: {items.length}
+        <div className="p-2 text-center text-[9px] font-mono text-white/20 bg-black/40 tracking-widest">
+            ADET: {items.length}
         </div>
     </div>
 );
