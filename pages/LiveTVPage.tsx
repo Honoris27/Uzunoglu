@@ -85,31 +85,23 @@ const LiveTVPage = () => {
               
               let title = "DURUM GÜNCELLENDİ";
               let color = "bg-gray-800";
-              let borderColor = "border-gray-600";
               let soundType = currentSettings.notification_sound || 'ding';
 
-              switch(newStatus) {
-                  case SlaughterStatus.Cut:
-                      title = "KESİM TAMAMLANDI";
-                      color = "bg-red-600";
-                      borderColor = "border-red-400";
-                      break;
-                  case SlaughterStatus.Chopping:
-                      title = "PARÇALANIYOR";
-                      color = "bg-orange-600";
-                      borderColor = "border-orange-400";
-                      break;
-                  case SlaughterStatus.Sharing:
-                      title = "HİSSE PAYLAŞIMI";
-                      color = "bg-yellow-500";
-                      borderColor = "border-yellow-300";
-                      break;
-                  case SlaughterStatus.Delivered:
-                      title = "TESLİM EDİLİYOR";
-                      color = "bg-green-600";
-                      borderColor = "border-green-400";
-                      soundType = 'bell'; 
-                      break;
+              // Specific Logic for CUTTING (KESİLDI)
+              if (newStatus === SlaughterStatus.Cut) {
+                  title = "KESİM TAMAMLANDI";
+                  color = "bg-gradient-to-r from-red-600 to-rose-700";
+                  soundType = 'gong'; // distinct sound for cut
+              } else if (newStatus === SlaughterStatus.Chopping) {
+                  title = "PARÇALANIYOR";
+                  color = "bg-gradient-to-r from-orange-500 to-amber-600";
+              } else if (newStatus === SlaughterStatus.Sharing) {
+                  title = "HİSSE PAYLAŞIMI";
+                  color = "bg-gradient-to-r from-yellow-400 to-orange-500";
+              } else if (newStatus === SlaughterStatus.Delivered) {
+                  title = "TESLİM EDİLİYOR";
+                  color = "bg-gradient-to-r from-green-500 to-emerald-700";
+                  soundType = 'bell'; 
               }
 
               // Trigger Alert if it's not a revert to pending
@@ -119,7 +111,7 @@ const LiveTVPage = () => {
                   if (audioEnabled) {
                       playTone(soundType, currentSettings);
                       // Slight delay for speech to not overlap with chime
-                      setTimeout(() => speak(animal.tag_number, title, animal.shares), 500);
+                      setTimeout(() => speak(animal.tag_number, title), 1000);
                   }
                   
                   // Auto close alert after 10 seconds
@@ -133,9 +125,11 @@ const LiveTVPage = () => {
   };
 
   const playTone = (type: string = 'ding', currentSettings?: AppSettings) => {
-      if (type === 'custom' && currentSettings?.custom_sound_url) {
+      // Priority: Custom Sound if selected
+      if (currentSettings?.notification_sound === 'custom' && currentSettings.custom_sound_url) {
           const audio = new Audio(currentSettings.custom_sound_url);
-          audio.play().catch(e => console.error("Audio Play Error:", e));
+          audio.volume = 1.0;
+          audio.play().catch(e => console.error("Custom Audio Play Error:", e));
           return;
       }
 
@@ -149,13 +143,14 @@ const LiveTVPage = () => {
       const now = ctx.currentTime;
       
       if (type === 'gong') {
+          // Low, resonant gong for Cutting
           osc.type = 'sine';
           osc.frequency.setValueAtTime(100, now);
-          osc.frequency.exponentialRampToValueAtTime(0.01, now + 2);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 1.5);
           gain.gain.setValueAtTime(1, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
           osc.start(now);
-          osc.stop(now + 2);
+          osc.stop(now + 2.5);
       } else if (type === 'bell') {
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(600, now);
@@ -165,7 +160,7 @@ const LiveTVPage = () => {
           osc.start(now);
           osc.stop(now + 1.5);
       } else {
-          // Ding
+          // Standard Ding
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
@@ -176,7 +171,7 @@ const LiveTVPage = () => {
       }
   };
 
-  const speak = (tag: string, action: string, shares?: any[]) => {
+  const speak = (tag: string, action: string) => {
       const msg = `${tag} numaralı kurban. ${action.toLowerCase()}.`;
       const utterance = new SpeechSynthesisUtterance(msg);
       utterance.lang = 'tr-TR';
@@ -253,10 +248,10 @@ const LiveTVPage = () => {
       {/* Main Board - Grid Layout */}
       <div className="flex-1 p-6 grid grid-cols-5 gap-4 h-full overflow-hidden">
          <StatusColumn title="KESİM SIRA" color="bg-slate-800" accent="border-slate-600" items={filterAndSortByStatus(SlaughterStatus.Pending)} />
-         <StatusColumn title="KESİLDİ" color="bg-red-900/30" accent="border-red-600" titleColor="text-red-500" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
-         <StatusColumn title="PARÇALAMA" color="bg-orange-900/30" accent="border-orange-500" titleColor="text-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
-         <StatusColumn title="PAY EDİLİYOR" color="bg-yellow-900/30" accent="border-yellow-500" titleColor="text-yellow-500" items={filterAndSortByStatus(SlaughterStatus.Sharing)} />
-         <StatusColumn title="TESLİM" color="bg-green-900/30" accent="border-green-500" titleColor="text-green-500" items={filterAndSortByStatus(SlaughterStatus.Delivered)} />
+         <StatusColumn title="KESİLDİ" color="bg-red-900/20" accent="border-red-600" titleColor="text-red-500" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
+         <StatusColumn title="PARÇALAMA" color="bg-orange-900/20" accent="border-orange-500" titleColor="text-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
+         <StatusColumn title="PAY EDİLİYOR" color="bg-yellow-900/20" accent="border-yellow-500" titleColor="text-yellow-500" items={filterAndSortByStatus(SlaughterStatus.Sharing)} />
+         <StatusColumn title="TESLİM" color="bg-green-900/20" accent="border-green-500" titleColor="text-green-500" items={filterAndSortByStatus(SlaughterStatus.Delivered)} />
       </div>
 
       {/* Scrolling Marquee Announcement */}

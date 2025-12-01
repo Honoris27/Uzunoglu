@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Animal, ShareStatus, AppSettings, Shareholder } from '../types';
 import { shareService, animalService, configService, paymentService } from '../services/supabaseService';
@@ -82,7 +83,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     setIsSubmitting(true);
 
     try {
-      // 1. Update Max Shares first if it's the first sale
+      // 1. Update Max Shares first if it's the first sale. Wait for it to complete.
       if (isFirstSale) {
         await animalService.update(selectedAnimal.id, { max_shares: Number(maxSharesInput) });
       }
@@ -104,10 +105,10 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           });
       }
 
-      // 3. Bulk Insert Shares
+      // 3. Bulk Insert Shares using the specific service method for batching
       const createdShares = await shareService.createBulk(sharesToInsert);
 
-      // 4. Create Payments if needed
+      // 4. Create Payments if needed (Parallel execution for speed)
       if (createdShares && createdShares.length > 0 && paidPerShare > 0) {
           const paymentsToInsert = createdShares.map(share => ({
               share_id: share.id,
@@ -144,7 +145,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
       refresh();
     } catch (err) {
       console.error(err);
-      alert("Satış işlemi sırasında bir hata oluştu. Lütfen bilgileri kontrol edip tekrar deneyin.");
+      alert("Satış işlemi sırasında bir hata oluştu. Lütfen verileri kontrol edip tekrar deneyin.");
     } finally {
         setIsSubmitting(false);
     }
@@ -444,44 +445,49 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
 
       <Modal isOpen={isReceiptOpen} onClose={() => setIsReceiptOpen(false)} title="İşlem Makbuzu">
          {lastTransaction && (
-           <div className="bg-white text-black font-sans leading-relaxed p-8 relative overflow-hidden" id="receipt-area">
-              {/* Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
+           <div className="bg-white text-black font-sans leading-relaxed p-8 relative overflow-hidden print-area" id="receipt-area">
+              {/* Paper Watermark Effect */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
                    <div className="transform -rotate-45 text-9xl font-black uppercase">MAKBUZ</div>
               </div>
 
+              {/* A4 Paper Container Content */}
               <div className="relative z-10">
-                  <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
+                  {/* Header */}
+                  <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-8">
                       <div className="flex flex-col">
-                          <h1 className="text-4xl font-black uppercase tracking-widest text-black">TAHSİLAT MAKBUZU</h1>
+                          <div className="text-3xl font-black uppercase tracking-widest text-black flex items-center gap-2">
+                             <span>TAHSİLAT MAKBUZU</span>
+                          </div>
                           <span className="text-sm font-bold text-gray-600 mt-1 uppercase tracking-[0.2em]">{settings?.site_title || 'KURBAN SATIŞ ORGANİZASYONU'}</span>
                       </div>
                       <div className="text-right">
-                          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">TARİH</div>
+                          <div className="inline-block bg-black text-white px-3 py-1 text-xs font-bold uppercase tracking-wider mb-1">TARİH</div>
                           <div className="text-xl font-bold text-black">{new Date().toLocaleDateString('tr-TR')}</div>
-                          <div className="text-xs text-gray-400 mt-1 font-mono">#{Math.floor(Math.random() * 100000)}</div>
+                          <div className="text-xs text-gray-400 mt-1 font-mono">ID: {Math.floor(Math.random() * 100000)}</div>
                       </div>
                   </div>
 
+                  {/* Info Blocks */}
                   <div className="grid grid-cols-2 gap-8 mb-8">
-                      <div className="p-5 bg-gray-50 rounded-xl border border-gray-200">
-                          <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-wider">Müşteri Bilgileri</h3>
-                          <p className="text-2xl font-bold text-black">{lastTransaction.customer}</p>
-                          <p className="text-gray-600 font-mono mt-1">{lastTransaction.phone}</p>
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">MÜŞTERİ BİLGİLERİ</h3>
+                          <p className="text-xl font-bold text-black border-b border-gray-300 pb-1 mb-1">{lastTransaction.customer}</p>
+                          <p className="text-gray-600 font-mono text-sm">{lastTransaction.phone}</p>
                       </div>
-                      <div className="p-5 bg-gray-50 rounded-xl border border-gray-200">
-                          <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-wider">İşlem Detayı</h3>
-                          <div className="space-y-2 text-sm">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">İŞLEM DETAYI</h3>
+                          <div className="space-y-1 text-sm">
                               <div className="flex justify-between">
-                                  <span className="text-gray-600">İşlem Türü:</span>
+                                  <span className="text-gray-600">Tür:</span>
                                   <span className="font-bold text-black uppercase">{lastTransaction.type}</span>
                               </div>
                               <div className="flex justify-between">
-                                  <span className="text-gray-600">Kurban Küpe No:</span>
+                                  <span className="text-gray-600">Küpe No:</span>
                                   <span className="font-bold text-black">#{lastTransaction.animal_tag}</span>
                               </div>
                               {lastTransaction.share_count > 1 && (
-                                <div className="flex justify-between text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded">
+                                <div className="flex justify-between text-blue-800 font-bold bg-blue-100 px-1 rounded mt-1">
                                     <span>Hisse Adedi:</span>
                                     <span>{lastTransaction.share_count} Adet</span>
                                 </div>
@@ -490,48 +496,79 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                       </div>
                   </div>
 
+                  {/* Financial Table */}
                   <table className="w-full border-collapse mb-8">
                       <thead>
-                          <tr className="border-b-2 border-black">
-                              <th className="text-left py-3 font-bold text-black uppercase text-sm tracking-wider">AÇIKLAMA</th>
-                              <th className="text-right py-3 font-bold text-black uppercase text-sm tracking-wider">TUTAR</th>
+                          <tr className="bg-black text-white">
+                              <th className="text-left py-2 px-4 font-bold uppercase text-xs tracking-wider rounded-tl-lg">AÇIKLAMA</th>
+                              <th className="text-right py-2 px-4 font-bold uppercase text-xs tracking-wider rounded-tr-lg">TUTAR</th>
                           </tr>
                       </thead>
                       <tbody>
                           <tr className="border-b border-gray-200">
-                              <td className="py-4 text-lg font-medium text-gray-800">Ödeme / Tahsilat Tutarı</td>
-                              <td className="py-4 text-right text-3xl font-bold text-black">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.amount_paid)}</td>
+                              <td className="py-4 px-4 text-sm font-medium text-gray-800">
+                                  {lastTransaction.type} İşlemi - {new Date().toLocaleTimeString()}
+                              </td>
+                              <td className="py-4 px-4 text-right text-2xl font-bold text-black">
+                                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.amount_paid)}
+                              </td>
                           </tr>
-                          <tr>
-                              <td className="py-4 text-sm font-bold text-gray-500 uppercase">Kalan Bakiye</td>
-                              <td className="py-4 text-right text-xl font-bold text-red-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.remaining)}</td>
+                          <tr className="bg-gray-50">
+                              <td className="py-3 px-4 text-xs font-bold text-gray-500 uppercase text-right">Kalan Bakiye:</td>
+                              <td className="py-3 px-4 text-right text-lg font-bold text-red-600">
+                                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(lastTransaction.remaining)}
+                              </td>
                           </tr>
                       </tbody>
                   </table>
 
+                  {/* Bank Details */}
                   {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
-                      <div className="mb-8 p-6 bg-gray-100 rounded-xl border border-dashed border-gray-300">
-                          <h4 className="font-bold text-xs uppercase text-gray-500 mb-4 border-b border-gray-300 pb-2 tracking-wider">Banka Hesap Bilgileri</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="mb-6 p-4 border border-dashed border-gray-400 rounded-lg bg-gray-50">
+                          <h4 className="font-bold text-xs uppercase text-black mb-3 border-b border-gray-300 pb-1 inline-block">Banka Hesap Bilgilerimiz</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                               {settings.bank_accounts.map((acc, i) => (
-                                  <div key={i} className="flex flex-col bg-white p-3 rounded border border-gray-200">
+                                  <div key={i} className="flex flex-col">
                                       <div className="font-bold text-black">{acc.bank_name}</div>
-                                      <div className="text-gray-600 text-xs">{acc.name}</div>
-                                      <div className="font-mono font-bold mt-1 text-gray-800">{acc.iban}</div>
+                                      <div className="text-gray-600 italic">{acc.name}</div>
+                                      <div className="font-mono font-bold text-gray-800 tracking-tight">{acc.iban}</div>
                                   </div>
                               ))}
                           </div>
                       </div>
                   )}
 
-                  <div className="text-center pt-8 border-t border-gray-100">
-                      <p className="text-gray-400 text-xs uppercase tracking-widest">Bu makbuz dijital olarak oluşturulmuştur.</p>
+                  {/* Footer */}
+                  <div className="text-center pt-6 border-t border-gray-200">
+                      <p className="text-gray-400 text-[10px] uppercase tracking-widest">Bu belge bilgisayar ortamında oluşturulmuştur. Islak imza gerektirmez.</p>
+                      <p className="text-gray-900 font-bold text-xs mt-1">{settings?.site_title || 'BANA Kurban Yönetim Sistemi'}</p>
                   </div>
               </div>
 
+              {/* Print Button (Hidden when printing) */}
               <button onClick={() => window.print()} className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-colors print:hidden shadow-xl flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                   YAZDIR (A4)
               </button>
+              
+              <style>{`
+                  @media print {
+                      body * { visibility: hidden; }
+                      #receipt-area, #receipt-area * { visibility: visible; }
+                      #receipt-area { 
+                          position: fixed; 
+                          left: 0; 
+                          top: 0; 
+                          width: 100%; 
+                          height: 100%;
+                          padding: 2cm; 
+                          background: white; 
+                          color: black; 
+                          z-index: 9999;
+                      }
+                      .print\\:hidden { display: none !important; }
+                  }
+              `}</style>
            </div>
          )}
       </Modal>

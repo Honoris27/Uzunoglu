@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { AppSettings, BankAccount } from '../types';
 import { configService, animalService } from '../services/supabaseService';
@@ -166,14 +167,32 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
           audio.play().catch(e => alert("Ses çalınamadı."));
           return;
       }
-      // Default fallback tone
+      
+      // Default fallback tones for preview
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
+      
+      const now = ctx.currentTime;
+
+      if (form.notification_sound === 'gong') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(100, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 1.5);
+          gain.gain.setValueAtTime(1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
+          osc.start(now);
+          osc.stop(now + 2);
+      } else {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(600, now);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1);
+          osc.start(now);
+          osc.stop(now + 1);
+      }
   };
 
   return (
@@ -249,28 +268,34 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                       onChange={e => setForm({...form, notification_sound: e.target.value as any})}
                       className="flex-1 border-none bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:text-white"
                    >
-                     <option value="ding">Ding</option>
-                     <option value="bell">Zil</option>
-                     <option value="gong">Gong</option>
+                     <option value="ding">Standart (Ding)</option>
+                     <option value="bell">Zil Sesi</option>
+                     <option value="gong">Gong Sesi</option>
                      <option value="custom">Özel Yükle...</option>
                    </select>
                    <button 
                      onClick={playPreviewSound}
-                     className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors"
+                     className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors shadow-sm"
+                     title="Sesi Dinle"
                    >
                        🔊
                    </button>
                </div>
                
                {form.notification_sound === 'custom' && (
-                   <div className="text-xs">
+                   <div className="text-xs bg-white dark:bg-gray-800 p-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                       <label className="block mb-1 text-gray-500">Ses Dosyası (MP3/WAV - Max 2MB)</label>
                        <input 
                          type="file" 
                          accept="audio/*"
                          onChange={handleSoundUpload}
                          className="w-full text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-200"
                        />
-                       {form.custom_sound_url ? <span className="text-green-600 font-bold block mt-1">✓ Ses yüklü</span> : <span className="text-red-500 block mt-1">Dosya seçin (Max 2MB)</span>}
+                       {form.custom_sound_url ? (
+                           <div className="mt-2 text-green-600 font-bold flex items-center gap-1">
+                               <span>✓</span> Dosya Yüklendi
+                           </div>
+                       ) : <span className="text-red-500 block mt-1">Lütfen dosya seçin</span>}
                    </div>
                )}
              </div>
@@ -287,7 +312,7 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                        <div className="dark:text-gray-300">
                            <div className="font-bold text-gray-900 dark:text-white">{bank.bank_name}</div>
                            <div className="text-xs text-gray-500">{bank.name}</div>
-                           <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1">{bank.iban}</div>
+                           <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1 select-all">{bank.iban}</div>
                        </div>
                        <button onClick={() => removeBank(i)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
                            <TrashIcon className="w-5 h-5"/>
@@ -299,21 +324,21 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
            <div className="flex flex-col md:flex-row gap-3 p-4 bg-gray-50/50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
              <input 
                 type="text" 
-                placeholder="Banka Adı" 
+                placeholder="Banka Adı (Örn: Ziraat)" 
                 value={newBank.bank_name} 
                 onChange={e => setNewBank({...newBank, bank_name: e.target.value})}
                 className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
              />
              <input 
                 type="text" 
-                placeholder="Alıcı Adı" 
+                placeholder="Alıcı Adı Soyadı" 
                 value={newBank.name} 
                 onChange={e => setNewBank({...newBank, name: e.target.value})}
                 className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
              />
              <input 
                 type="text" 
-                placeholder="IBAN" 
+                placeholder="IBAN (TR...)" 
                 value={newBank.iban} 
                 onChange={e => setNewBank({...newBank, iban: e.target.value})}
                 className="flex-1 p-2 rounded-lg border-none bg-white dark:bg-gray-800 shadow-sm dark:text-white"
