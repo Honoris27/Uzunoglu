@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Animal, SlaughterStatus, AppSettings } from '../types';
 import { animalService, configService } from '../services/supabaseService';
 import Modal from '../components/Modal';
-import { PlusIcon, TrashIcon } from '../components/Icons';
+import { PlusIcon } from '../components/Icons';
 
 interface Props {
   animals: Animal[];
@@ -17,6 +17,11 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+
   useEffect(() => {
     configService.getSettings().then(setSettings);
   }, []);
@@ -29,10 +34,21 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
     image_url: ''
   });
 
-  // Determine available types (default to Buyukbas if empty)
   const animalTypes = settings?.animal_types && settings.animal_types.length > 0 
     ? settings.animal_types 
     : ['Büyükbaş'];
+
+  const filteredAnimals = useMemo(() => {
+      return animals.filter(a => {
+          const matchesSearch = a.tag_number.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesType = filterType === 'all' || a.type === filterType;
+          const matchesStatus = filterStatus === 'all' || (
+             filterStatus === 'sold' ? (a.shares?.length || 0) >= a.max_shares :
+             filterStatus === 'unsold' ? (a.shares?.length || 0) < a.max_shares : true
+          );
+          return matchesSearch && matchesType && matchesStatus;
+      });
+  }, [animals, searchTerm, filterType, filterStatus]);
 
   const openModal = (animal?: Animal) => {
     if (animal) {
@@ -62,7 +78,6 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
       if (file) {
           const reader = new FileReader();
           reader.onloadend = () => {
-              // Convert to base64
               setFormData(prev => ({ ...prev, image_url: reader.result as string }));
           };
           reader.readAsDataURL(file);
@@ -72,13 +87,12 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Use default image if none provided
       const finalImage = formData.image_url || settings?.default_image_url;
 
       const payload = {
         tag_number: formData.tag_number,
         type: formData.type,
-        weight_kg: 0, // Default 0 as requested to not enter weight
+        weight_kg: 0, 
         total_price: Number(formData.total_price),
         notes: formData.notes,
         image_url: finalImage,
@@ -89,8 +103,6 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
       if (editingAnimal) {
         await animalService.update(editingAnimal.id, payload);
       } else {
-        // Default Max shares logic: Big animals usually 7, small 1. 
-        // Simple heuristic: if type contains "küçük" or "koyun" etc -> 1 else 7
         const isSmall = formData.type.toLowerCase().includes('küçük') || formData.type.toLowerCase().includes('koyun') || formData.type.toLowerCase().includes('keçi');
         await animalService.create({ ...payload, max_shares: isSmall ? 1 : 7 });
       }
@@ -117,10 +129,43 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-bold dark:text-white">Hayvan Listesi</h2>
-        <div className="flex gap-2">
-            <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold dark:text-white">Hayvan Listesi</h2>
+            <button onClick={() => openModal()} className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-primary-700 shadow-sm transition-colors">
+                <PlusIcon className="w-5 h-5" /> Yeni Ekle
+            </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1 w-full">
+                <input 
+                    type="text" 
+                    placeholder="Küpe No Ara..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                />
+            </div>
+            <select 
+                value={filterType} 
+                onChange={e => setFilterType(e.target.value)}
+                className="w-full md:w-48 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none"
+            >
+                <option value="all">Tüm Türler</option>
+                {animalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select 
+                value={filterStatus} 
+                onChange={e => setFilterStatus(e.target.value)}
+                className="w-full md:w-48 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none"
+            >
+                <option value="all">Tüm Durumlar</option>
+                <option value="sold">Dolu / Satıldı</option>
+                <option value="unsold">Boş Yer Var</option>
+            </select>
+            <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1 shrink-0">
                 <button 
                   onClick={() => setViewMode('list')} 
                   className={`px-3 py-1 rounded-md text-sm ${viewMode === 'list' ? 'bg-white text-gray-900 shadow' : 'text-gray-500'}`}
@@ -134,16 +179,12 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
                     Kart
                 </button>
             </div>
-            <button onClick={() => openModal()} className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-primary-700 shadow-sm transition-colors">
-            <PlusIcon className="w-5 h-5" /> Yeni Hayvan Ekle
-            </button>
         </div>
       </div>
 
-      {animals.length === 0 ? (
+      {filteredAnimals.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-          <p className="text-gray-500 dark:text-gray-400">Bu yılda kayıtlı hayvan bulunamadı.</p>
-          <button onClick={() => openModal()} className="mt-4 text-primary-600 hover:underline">İlk kaydı ekle</button>
+          <p className="text-gray-500 dark:text-gray-400">Aramanızla eşleşen hayvan bulunamadı.</p>
         </div>
       ) : (
         <>
@@ -157,12 +198,11 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
                                 <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Tür</th>
                                 <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Fiyat</th>
                                 <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Hisse Durumu</th>
-                                <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Durum</th>
                                 <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {animals.map(animal => (
+                            {filteredAnimals.map(animal => (
                                 <tr key={animal.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                                     <td className="p-4">
                                         <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden relative shadow-sm group-hover:scale-110 transition-transform">
@@ -192,11 +232,6 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-gray-300">
-                                            {animal.slaughter_status}
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
                                         <div className="flex gap-2">
                                             <button onClick={() => openModal(animal)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Düzenle</button>
                                             <button onClick={() => handleDelete(animal.id)} className="text-red-600 hover:text-red-800 text-sm font-medium">Sil</button>
@@ -212,7 +247,7 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {animals.map(animal => (
+                {filteredAnimals.map(animal => (
                     <div key={animal.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
                         <div className="h-48 bg-gray-200 relative">
                             {animal.image_url ? (
@@ -269,9 +304,6 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
                      {animalTypes.map(t => <option key={t} value={t}>{t}</option>)}
                  </select>
              </div>
-             
-             {/* Weight removed as requested */}
-
              <div>
                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Fiyat (TL)</label>
                  <input type="number" required value={formData.total_price} onChange={e => setFormData({...formData, total_price: e.target.value})} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" />

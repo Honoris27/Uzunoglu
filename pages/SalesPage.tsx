@@ -9,11 +9,21 @@ interface Props {
   refresh: () => void;
 }
 
+interface TransactionRecord {
+    id: number;
+    time: string;
+    type: string;
+    customer: string;
+    amount: number;
+    detail: string;
+}
+
 const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
   const [activeTab, setActiveTab] = useState<'sale' | 'payment'>('sale');
   const [selectedAnimalId, setSelectedAnimalId] = useState('');
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   // Payment State
@@ -29,13 +39,19 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     phone: '',
     amount_agreed: '',
     amount_paid: '0',
-    status: ShareStatus.Unpaid
+    status: ShareStatus.Unpaid,
+    share_count: 1 // New: How many shares to buy
   });
 
   const [maxSharesInput, setMaxSharesInput] = useState(7); 
 
   const selectedAnimal = animals.find(a => a.id === selectedAnimalId);
   const isFirstSale = selectedAnimal && (!selectedAnimal.shares || selectedAnimal.shares.length === 0);
+  
+  // Calculate available shares
+  const currentShares = selectedAnimal?.shares?.length || 0;
+  const currentMaxShares = selectedAnimal ? (isFirstSale ? maxSharesInput : selectedAnimal.max_shares) : 7;
+  const availableShares = currentMaxShares - currentShares;
 
   // Derived state for Payment Tab
   const allShareholders = animals.flatMap(a => (a.shares || []).map(s => ({ ...s, animalTag: a.tag_number, animalId: a.id })));
@@ -43,40 +59,71 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
   const selectedDebtor = debtors.find(d => d.id === selectedShareholderId);
 
   const suggestedPrice = selectedAnimal 
-    ? Math.floor(selectedAnimal.total_price / (isFirstSale ? maxSharesInput : selectedAnimal.max_shares))
+    ? Math.floor(selectedAnimal.total_price / currentMaxShares)
     : 0;
+
+  const addToHistory = (record: TransactionRecord) => {
+      setTransactionHistory(prev => [record, ...prev].slice(0, 10));
+  };
 
   const handleSaleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAnimal) return;
 
+    if (formData.share_count > availableShares) {
+        alert(`Hata: Sadece ${availableShares} adet hisse boşta.`);
+        return;
+    }
+
     try {
+      // 1. Update Max Shares if first sale
       if (isFirstSale) {
         await animalService.update(selectedAnimal.id, { max_shares: maxSharesInput });
       }
 
-      const share = await shareService.create({
-        animal_id: selectedAnimal.id,
-        name: formData.name,
-        phone: formData.phone,
-        amount_agreed: Number(formData.amount_agreed),
-        amount_paid: Number(formData.amount_paid),
-        status: formData.status as ShareStatus
-      });
+      // 2. Create Shares Loop
+      const sharePrice = Number(formData.amount_agreed) / formData.share_count;
+      const paidPerShare = Number(formData.amount_paid) / formData.share_count;
 
-      setLastTransaction({ 
-          type: 'SATIŞ',
+      for (let i = 0; i < formData.share_count; i++) {
+          await shareService.create({
+            animal_id: selectedAnimal.id,
+            name: formData.name,
+            phone: formData.phone,
+            amount_agreed: sharePrice,
+            amount_paid: paidPerShare,
+            status: formData.status as ShareStatus
+          });
+      }
+
+      // 3. Receipt & History
+      const transactionData = { 
+          type: 'HİSSE SATIŞI',
           customer: formData.name,
+          phone: formData.phone,
           amount_total: Number(formData.amount_agreed),
           amount_paid: Number(formData.amount_paid),
           animal_tag: selectedAnimal.tag_number,
-          remaining: Number(formData.amount_agreed) - Number(formData.amount_paid)
+          remaining: Number(formData.amount_agreed) - Number(formData.amount_paid),
+          share_count: formData.share_count
+      };
+
+      setLastTransaction(transactionData);
+      addToHistory({
+          id: Date.now(),
+          time: new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}),
+          type: 'SATIŞ',
+          customer: formData.name,
+          amount: Number(formData.amount_paid),
+          detail: `${formData.share_count} Hisse - #${selectedAnimal.tag_number}`
       });
+
       setIsReceiptOpen(true);
       
-      setFormData({ name: '', phone: '', amount_agreed: '', amount_paid: '0', status: ShareStatus.Unpaid });
+      setFormData({ name: '', phone: '', amount_agreed: '', amount_paid: '0', status: ShareStatus.Unpaid, share_count: 1 });
       refresh();
     } catch (err) {
+      console.error(err);
       alert("Satış hatası.");
     }
   };
@@ -95,14 +142,27 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
               status: newStatus
           });
 
-          setLastTransaction({
+          const transactionData = {
               type: 'TAHSİLAT',
               customer: selectedDebtor.name,
+              phone: selectedDebtor.phone,
               amount_total: selectedDebtor.amount_agreed,
-              amount_paid: payment, // Just the current payment amount for receipt
+              amount_paid: payment, 
               animal_tag: selectedDebtor.animalTag,
-              remaining: selectedDebtor.amount_agreed - newPaid
-          });
+              remaining: selectedDebtor.amount_agreed - newPaid,
+              share_count: 1
+          };
+
+          setLastTransaction(transactionData);
+          addToHistory({
+            id: Date.now(),
+            time: new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}),
+            type: 'TAHSİLAT',
+            customer: selectedDebtor.name,
+            amount: payment,
+            detail: `Borç Ödeme - #${selectedDebtor.animalTag}`
+        });
+
           setIsReceiptOpen(true);
           setPaymentAmount('');
           setSelectedShareholderId('');
@@ -131,50 +191,53 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           </button>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Form Section */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
           
           {activeTab === 'sale' ? (
               <form onSubmit={handleSaleSubmit} className="space-y-4">
                 <h3 className="text-lg font-bold mb-4 dark:text-gray-200">Hisse Satış Formu</h3>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hayvan Seçimi</label>
-                  <select 
-                    required
-                    value={selectedAnimalId}
-                    onChange={e => {
-                        setSelectedAnimalId(e.target.value);
-                        const animal = animals.find(a => a.id === e.target.value);
-                        if(animal) {
-                            const shares = animal.shares?.length === 0 ? (animal.type.includes('üçük') ? 1 : 7) : animal.max_shares;
-                            setMaxSharesInput(shares);
-                        }
-                    }}
-                    className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  >
-                    <option value="">Hayvan Seçiniz...</option>
-                    {animals.filter(a => (a.shares?.length || 0) < a.max_shares).map(a => (
-                      <option key={a.id} value={a.id}>
-                        {a.tag_number} - {a.type} ({a.shares?.length}/{a.max_shares} Dolu) - {a.total_price} TL
-                      </option>
-                    ))}
-                  </select>
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hayvan Seçimi</label>
+                    <select 
+                        required
+                        value={selectedAnimalId}
+                        onChange={e => {
+                            setSelectedAnimalId(e.target.value);
+                            const animal = animals.find(a => a.id === e.target.value);
+                            if(animal) {
+                                const shares = animal.shares?.length === 0 ? (animal.type.includes('üçük') ? 1 : 7) : animal.max_shares;
+                                setMaxSharesInput(shares);
+                                setFormData(prev => ({...prev, share_count: 1}));
+                            }
+                        }}
+                        className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="">Hayvan Seçiniz...</option>
+                        {animals.filter(a => (a.shares?.length || 0) < a.max_shares).map(a => (
+                        <option key={a.id} value={a.id}>
+                            {a.tag_number} - {a.type} ({a.shares?.length}/{a.max_shares} Dolu) - {a.total_price} TL
+                        </option>
+                        ))}
+                    </select>
+
+                    {selectedAnimal && (
+                         <div className="mt-2 text-sm text-gray-500 flex justify-between">
+                            <span>Önerilen Hisse Fiyatı: <strong className="text-primary-600">{suggestedPrice} TL</strong></span>
+                            <span>Kalan Hisse: <strong className="text-red-600">{availableShares}</strong></span>
+                        </div>
+                    )}
                 </div>
 
                 {selectedAnimal && isFirstSale && !selectedAnimal.type.toLowerCase().includes('küçük') && (
-                    <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-                        <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">Bu hayvan kaç hisseli olacak?</label>
-                        <input type="number" min="1" max="7" value={maxSharesInput} onChange={e => setMaxSharesInput(Number(e.target.value))} className="w-full p-2 border rounded" />
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800 flex items-center gap-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">Toplam Hisse Sayısı</label>
+                            <p className="text-xs text-blue-600">Bu hayvan toplam kaç hisseye bölünecek?</p>
+                        </div>
+                        <input type="number" min="1" max="7" value={maxSharesInput} onChange={e => setMaxSharesInput(Number(e.target.value))} className="w-20 p-2 border rounded font-bold text-center" />
                     </div>
-                )}
-
-                {selectedAnimal && (
-                  <div className="py-2">
-                    <p className="text-sm text-gray-500">
-                      Önerilen Hisse Fiyatı: <span className="font-bold text-primary-600">{suggestedPrice} TL</span>
-                    </p>
-                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
@@ -188,24 +251,39 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Anlaşılan Tutar</label>
-                      <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-700">
+                    <div className="flex gap-4 items-end">
+                        <div className="w-1/4">
+                             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Kaç Hisse?</label>
+                             <input 
+                                type="number" 
+                                min="1" 
+                                max={availableShares} 
+                                value={formData.share_count} 
+                                onChange={e => setFormData({...formData, share_count: Number(e.target.value)})} 
+                                className="w-full p-2 border rounded font-bold text-center dark:bg-gray-700 dark:text-white" 
+                             />
+                        </div>
+                        <div className="flex-1">
+                             <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Anlaşılan TOPLAM Tutar</label>
+                             <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                        </div>
                     </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Ödenen (Şimdi)</label>
                       <input type="number" required value={formData.amount_paid} onChange={e => setFormData({...formData, amount_paid: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
                     </div>
-                </div>
-
-                <div>
-                   <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Durum</label>
-                   <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white">
-                       <option value={ShareStatus.Unpaid}>Ödenmedi</option>
-                       <option value={ShareStatus.Partial}>Kısmi Ödeme</option>
-                       <option value={ShareStatus.Paid}>Tamamı Ödendi</option>
-                   </select>
+                    <div>
+                        <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Durum</label>
+                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white">
+                            <option value={ShareStatus.Unpaid}>Ödenmedi</option>
+                            <option value={ShareStatus.Partial}>Kısmi Ödeme</option>
+                            <option value={ShareStatus.Paid}>Tamamı Ödendi</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-500/20">
@@ -257,89 +335,116 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           )}
         </div>
 
-        {/* Info Section */}
-        <div className="hidden lg:block bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">İşlem Özeti</h3>
-          <p className="text-gray-500 mb-4">
-              Buradan hem yeni hisse satışı yapabilir hem de mevcut hissedarların kalan ödemelerini tahsil edebilirsiniz.
-          </p>
-          <div className="text-gray-400 text-sm italic border-t pt-4">
-            Her işlem sonrası otomatik A4 makbuz oluşturulur.
-          </div>
+        {/* History Section */}
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 h-fit">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 border-b pb-2">Son İşlemler (Bugün)</h3>
+          
+          {transactionHistory.length === 0 ? (
+              <p className="text-gray-500 text-sm italic">Henüz işlem yapılmadı.</p>
+          ) : (
+              <ul className="space-y-4">
+                  {transactionHistory.map(tr => (
+                      <li key={tr.id} className="bg-white dark:bg-gray-800 p-3 rounded shadow-sm text-sm">
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                              <span>{tr.time}</span>
+                              <span className={`font-bold ${tr.type === 'SATIŞ' ? 'text-green-500' : 'text-blue-500'}`}>{tr.type}</span>
+                          </div>
+                          <div className="font-bold dark:text-white">{tr.customer}</div>
+                          <div className="flex justify-between items-center mt-1">
+                              <span className="text-gray-500 text-xs">{tr.detail}</span>
+                              <span className="font-mono font-bold text-gray-900 dark:text-gray-200">+{tr.amount} TL</span>
+                          </div>
+                      </li>
+                  ))}
+              </ul>
+          )}
         </div>
       </div>
 
       <Modal isOpen={isReceiptOpen} onClose={() => setIsReceiptOpen(false)} title="İşlem Makbuzu">
          {lastTransaction && (
-           <div className="bg-white text-black p-8 font-serif" id="receipt-area">
-              {/* A4 Print Layout Simulation */}
-              <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
-                 <div>
-                     <h1 className="text-2xl font-bold uppercase tracking-wider">Tahsilat Makbuzu</h1>
-                     <p className="text-sm">Kurban Organizasyonu</p>
-                 </div>
-                 <div className="text-right">
-                     <p className="font-bold">{new Date().toLocaleDateString()}</p>
-                     <p className="text-sm">No: {Math.floor(Math.random() * 10000)}</p>
-                 </div>
+           <div className="bg-white text-black font-sans leading-relaxed p-8" id="receipt-area">
+              
+              <div className="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-8">
+                  <div className="flex flex-col">
+                      <h1 className="text-4xl font-bold uppercase tracking-widest text-gray-900">TAHSİLAT MAKBUZU</h1>
+                      <span className="text-sm text-gray-500 mt-1 uppercase tracking-wider">Kurban Satış Organizasyonu</span>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-400">TARİH</div>
+                      <div className="text-xl font-bold">{new Date().toLocaleDateString('tr-TR')}</div>
+                      <div className="text-xs text-gray-400 mt-1">Ref: {Math.floor(Math.random() * 100000)}</div>
+                  </div>
               </div>
 
-              <div className="mb-8 p-4 border border-gray-300 rounded bg-gray-50">
-                 <div className="grid grid-cols-2 gap-4">
-                     <div>
-                         <span className="block text-xs font-bold uppercase text-gray-500">Müşteri</span>
-                         <span className="text-lg font-bold">{lastTransaction.customer}</span>
-                     </div>
-                     <div>
-                         <span className="block text-xs font-bold uppercase text-gray-500">İşlem Türü</span>
-                         <span className="text-lg">{lastTransaction.type}</span>
-                     </div>
-                     <div>
-                         <span className="block text-xs font-bold uppercase text-gray-500">Kurban Küpe No</span>
-                         <span className="text-lg">#{lastTransaction.animal_tag}</span>
-                     </div>
-                     <div>
-                         <span className="block text-xs font-bold uppercase text-gray-500">Kalan Bakiye</span>
-                         <span className="text-lg text-red-600 font-bold">{lastTransaction.remaining} TL</span>
-                     </div>
-                 </div>
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                  <div className="p-4 bg-gray-50 rounded border border-gray-100">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Sayın</h3>
+                      <p className="text-2xl font-bold text-gray-800">{lastTransaction.customer}</p>
+                      <p className="text-gray-500 font-mono">{lastTransaction.phone}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded border border-gray-100">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">İşlem Bilgileri</h3>
+                      <div className="flex justify-between mb-1">
+                          <span>İşlem:</span>
+                          <span className="font-bold">{lastTransaction.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                          <span>Kurban Küpe:</span>
+                          <span className="font-bold">#{lastTransaction.animal_tag}</span>
+                      </div>
+                      {lastTransaction.share_count > 1 && (
+                         <div className="flex justify-between text-blue-600">
+                            <span>Hisse Adedi:</span>
+                            <span className="font-bold">{lastTransaction.share_count} Adet</span>
+                         </div>
+                      )}
+                  </div>
               </div>
 
-              <div className="mb-8">
-                  <table className="w-full text-left border-collapse border border-gray-300">
-                      <thead className="bg-gray-100">
-                          <tr>
-                              <th className="border border-gray-300 p-2">Açıklama</th>
-                              <th className="border border-gray-300 p-2 text-right">Tutar</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <tr>
-                              <td className="border border-gray-300 p-2">Hisse Ödemesi / Tahsilat</td>
-                              <td className="border border-gray-300 p-2 text-right font-bold">{lastTransaction.amount_paid} TL</td>
-                          </tr>
-                      </tbody>
-                  </table>
-              </div>
+              <table className="w-full border-collapse mb-8">
+                  <thead>
+                      <tr className="border-b-2 border-gray-800">
+                          <th className="text-left py-3 font-bold text-gray-700">AÇIKLAMA</th>
+                          <th className="text-right py-3 font-bold text-gray-700">TUTAR</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr className="border-b border-gray-200">
+                          <td className="py-4 text-lg">Ödeme / Tahsilat Tutarı</td>
+                          <td className="py-4 text-right text-2xl font-bold">{lastTransaction.amount_paid} TL</td>
+                      </tr>
+                      <tr>
+                          <td className="py-3 text-sm text-gray-500 pt-4">Kalan Bakiye</td>
+                          <td className="py-3 text-right text-red-600 font-bold pt-4">{lastTransaction.remaining} TL</td>
+                      </tr>
+                  </tbody>
+              </table>
 
               {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
-                  <div className="mt-8 pt-4 border-t border-dashed">
-                      <h4 className="font-bold mb-2 text-sm uppercase">Banka Hesap Bilgilerimiz</h4>
-                      <div className="grid grid-cols-1 gap-2 text-xs">
+                  <div className="mb-8 p-6 bg-gray-100 rounded-lg border border-dashed border-gray-300">
+                      <h4 className="font-bold text-sm uppercase text-gray-500 mb-4 border-b border-gray-300 pb-2">Banka Hesap Bilgileri</h4>
+                      <div className="grid grid-cols-1 gap-4 text-sm">
                           {settings.bank_accounts.map((acc, i) => (
-                              <div key={i} className="flex gap-2">
-                                  <span className="font-bold">{acc.bank_name}:</span>
-                                  <span>{acc.name} -</span>
-                                  <span className="font-mono">{acc.iban}</span>
+                              <div key={i} className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                                  <span className="font-bold text-gray-800 w-32">{acc.bank_name}</span>
+                                  <span className="text-gray-600">{acc.name}</span>
+                                  <span className="font-mono bg-white px-2 py-1 rounded border ml-auto">{acc.iban}</span>
                               </div>
                           ))}
                       </div>
                   </div>
               )}
 
-              <div className="mt-12 flex justify-between text-xs text-gray-500">
-                  <div className="text-center w-32 pt-8 border-t border-gray-300">Teslim Eden (Kaşe/İmza)</div>
-                  <div className="text-center w-32 pt-8 border-t border-gray-300">Teslim Alan</div>
+              <div className="mt-12 flex justify-between px-8 text-center text-sm text-gray-500">
+                  <div>
+                      <p className="mb-8">Teslim Eden</p>
+                      <div className="w-32 border-t border-gray-300 mx-auto"></div>
+                  </div>
+                  <div>
+                      <p className="mb-8">Teslim Alan</p>
+                      <div className="w-32 border-t border-gray-300 mx-auto"></div>
+                  </div>
               </div>
 
               <style>{`
@@ -347,12 +452,12 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                   @page { size: A4; margin: 1cm; }
                   body * { visibility: hidden; }
                   #receipt-area, #receipt-area * { visibility: visible; }
-                  #receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+                  #receipt-area { position: absolute; left: 0; top: 0; width: 100%; height: 100%; padding: 0; margin: 0; background: white; }
                 }
               `}</style>
 
-              <button onClick={() => window.print()} className="w-full mt-6 bg-gray-900 text-white py-3 rounded hover:bg-black transition-colors print:hidden">
-                  Yazdır (A4)
+              <button onClick={() => window.print()} className="w-full mt-8 bg-gray-900 text-white py-4 rounded-lg font-bold hover:bg-black transition-colors print:hidden shadow-xl">
+                  YAZDIR (A4)
               </button>
            </div>
          )}

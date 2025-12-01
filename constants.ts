@@ -15,7 +15,9 @@ create table if not exists public.app_settings (
   default_image_url text default 'https://images.unsplash.com/photo-1541600383005-565c949cf777?q=80&w=1000&auto=format&fit=crop',
   theme text default 'light',
   animal_types jsonb default '["Büyükbaş", "Küçükbaş"]'::jsonb,
-  bank_accounts jsonb default '[]'::jsonb
+  bank_accounts jsonb default '[]'::jsonb,
+  active_announcement text default '',
+  notification_sound text default 'ding'
 );
 
 -- Insert default settings if not exists

@@ -14,6 +14,7 @@ import SalesPage from './pages/SalesPage';
 import CustomersPage from './pages/CustomersPage';
 import SettingsPage from './pages/SettingsPage';
 import LiveTVPage from './pages/LiveTVPage';
+import SlaughterhousePage from './pages/SlaughterhousePage';
 
 function App() {
   // Global State
@@ -126,7 +127,7 @@ function App() {
   // RENDER LOGIC
 
   if (isTVMode) {
-    return <LiveTVPage />; // No auth required for TV usually, or pass a key. For demo, open.
+    return <LiveTVPage />; 
   }
 
   if (!isAuthenticated) {
@@ -153,6 +154,8 @@ function App() {
         return <SalesPage animals={animals} refresh={loadAnimals} />;
       case 'customers':
         return <CustomersPage animals={animals} />;
+      case 'slaughterhouse':
+        return <SlaughterhousePage animals={animals} refresh={loadAnimals} />;
       case 'settings':
         return <SettingsPage settings={settings} availableYears={availableYears} onRefresh={() => window.location.reload()} />;
       default:

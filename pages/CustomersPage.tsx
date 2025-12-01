@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
-import { Animal, ShareStatus } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Animal, ShareStatus, AppSettings } from '../types';
+import { configService } from '../services/supabaseService';
 import Modal from '../components/Modal';
 
 interface Props {
@@ -9,6 +10,11 @@ interface Props {
 
 const CustomersPage: React.FC<Props> = ({ animals }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  useEffect(() => {
+    configService.getSettings().then(setSettings);
+  }, []);
 
   const customers = useMemo(() => {
     const list: any[] = [];
@@ -18,13 +24,14 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
           list.push({
             ...share,
             animalTag: animal.tag_number,
+            animalType: animal.type,
             animalPrice: animal.total_price,
             remaining: share.amount_agreed - share.amount_paid
           });
         });
       }
     });
-    return list;
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [animals]);
 
   const openDetail = (customer: any) => {
@@ -33,88 +40,163 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
 
   return (
     <div>
-       <h2 className="text-2xl font-bold mb-6 dark:text-white">Müşteri Listesi</h2>
-       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-         <table className="w-full text-left border-collapse">
-           <thead className="bg-gray-50 dark:bg-gray-700">
-             <tr>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Ad Soyad</th>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Telefon</th>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Küpe No</th>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Borç</th>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Durum</th>
-               <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-200">Detay</th>
-             </tr>
-           </thead>
-           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-             {customers.map((c, i) => (
-               <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                 <td className="p-4 font-medium dark:text-gray-300">{c.name}</td>
-                 <td className="p-4 text-gray-500 dark:text-gray-400">{c.phone}</td>
-                 <td className="p-4 dark:text-gray-300">#{c.animalTag}</td>
-                 <td className="p-4 text-red-600 font-bold">{c.remaining > 0 ? `${c.remaining} TL` : '-'}</td>
-                 <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                       c.status === ShareStatus.Paid ? 'bg-green-100 text-green-700' : 
-                       c.status === ShareStatus.Partial ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {c.status}
-                    </span>
-                 </td>
-                 <td className="p-4">
-                     <button 
-                        onClick={() => openDetail(c)}
-                        className="text-primary-600 hover:text-primary-800 font-semibold text-sm"
-                     >
-                         Görüntüle
-                     </button>
-                 </td>
-               </tr>
-             ))}
-             {customers.length === 0 && (
-               <tr><td colSpan={6} className="p-6 text-center text-gray-400">Kayıt bulunamadı.</td></tr>
-             )}
-           </tbody>
-         </table>
+       <h2 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-2">
+           <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+           </svg>
+           Müşteri Listesi
+       </h2>
+       
+       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+         <div className="overflow-x-auto">
+             <table className="w-full text-left border-collapse">
+               <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs uppercase tracking-wider">
+                 <tr>
+                   <th className="p-4 font-semibold">Müşteri</th>
+                   <th className="p-4 font-semibold">İletişim</th>
+                   <th className="p-4 font-semibold">Hayvan</th>
+                   <th className="p-4 font-semibold text-right">Borç</th>
+                   <th className="p-4 font-semibold text-center">Durum</th>
+                   <th className="p-4 font-semibold"></th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                 {customers.map((c, i) => (
+                   <tr key={i} className="hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors">
+                     <td className="p-4 font-bold text-gray-900 dark:text-white">{c.name}</td>
+                     <td className="p-4 text-gray-500 dark:text-gray-400 font-mono text-sm">{c.phone}</td>
+                     <td className="p-4 dark:text-gray-300">
+                        <div className="flex flex-col">
+                            <span className="font-bold">#{c.animalTag}</span>
+                            <span className="text-xs text-gray-400">{c.animalType}</span>
+                        </div>
+                     </td>
+                     <td className="p-4 text-right">
+                        {c.remaining > 0 ? (
+                            <span className="font-bold text-red-600">-{c.remaining} TL</span>
+                        ) : (
+                            <span className="font-bold text-green-600">0 TL</span>
+                        )}
+                     </td>
+                     <td className="p-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                           c.status === ShareStatus.Paid ? 'bg-green-100 text-green-800' : 
+                           c.status === ShareStatus.Partial ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {c.status === ShareStatus.Paid ? 'ÖDENDİ' : c.status === ShareStatus.Partial ? 'KISMI' : 'ÖDENMEDİ'}
+                        </span>
+                     </td>
+                     <td className="p-4 text-right">
+                         <button 
+                            onClick={() => openDetail(c)}
+                            className="text-primary-600 hover:text-primary-800 hover:bg-primary-50 px-3 py-1 rounded-lg transition-colors font-medium text-sm"
+                         >
+                             Ekstre Görüntüle
+                         </button>
+                     </td>
+                   </tr>
+                 ))}
+                 {customers.length === 0 && (
+                   <tr><td colSpan={6} className="p-8 text-center text-gray-400">Kayıtlı müşteri bulunamadı.</td></tr>
+                 )}
+               </tbody>
+             </table>
+         </div>
        </div>
 
        {/* Detail Modal */}
-       <Modal isOpen={!!selectedCustomer} onClose={() => setSelectedCustomer(null)} title="Müşteri Detayı">
+       <Modal isOpen={!!selectedCustomer} onClose={() => setSelectedCustomer(null)} title="Hesap Ekstresi">
            {selectedCustomer && (
-               <div className="space-y-6" id="statement-area">
-                   <div className="border-b pb-4">
-                       <h3 className="text-2xl font-bold">{selectedCustomer.name}</h3>
-                       <p className="text-gray-500">{selectedCustomer.phone}</p>
-                   </div>
-
-                   <div className="bg-gray-50 p-4 rounded-lg">
-                       <h4 className="font-bold text-gray-700 mb-2">Hisse Bilgileri</h4>
-                       <div className="grid grid-cols-2 gap-4 text-sm">
-                           <div>Hayvan Küpe:</div>
-                           <div className="font-bold">#{selectedCustomer.animalTag}</div>
-                           
-                           <div>Anlaşılan Tutar:</div>
-                           <div className="font-bold">{selectedCustomer.amount_agreed} TL</div>
-                           
-                           <div>Ödenen Tutar:</div>
-                           <div className="font-bold text-green-600">{selectedCustomer.amount_paid} TL</div>
-                           
-                           <div>Kalan Borç:</div>
-                           <div className="font-bold text-red-600">{selectedCustomer.remaining} TL</div>
+               <div className="bg-white text-gray-900" id="statement-area">
+                   {/* Header */}
+                   <div className="border-b-2 border-gray-800 pb-6 mb-6 flex justify-between items-start">
+                       <div>
+                           <h1 className="text-3xl font-bold uppercase tracking-wide text-primary-700">Hesap Ekstresi</h1>
+                           <p className="text-sm text-gray-500 mt-1">Kurban Satış Organizasyonu</p>
+                       </div>
+                       <div className="text-right">
+                           <div className="text-sm text-gray-500">Tarih</div>
+                           <div className="font-bold">{new Date().toLocaleDateString('tr-TR')}</div>
                        </div>
                    </div>
 
-                   <div className="text-center pt-4">
+                   {/* Customer Info */}
+                   <div className="bg-gray-50 p-6 rounded-lg mb-8 border border-gray-100">
+                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-2">Sayın Müşteri</h4>
+                       <h2 className="text-2xl font-bold">{selectedCustomer.name}</h2>
+                       <p className="text-gray-600 font-mono">{selectedCustomer.phone}</p>
+                   </div>
+
+                   {/* Transaction Table */}
+                   <div className="mb-8">
+                       <table className="w-full border-collapse">
+                           <thead>
+                               <tr className="border-b border-gray-300">
+                                   <th className="text-left py-2 font-bold text-gray-600">Açıklama</th>
+                                   <th className="text-right py-2 font-bold text-gray-600">Borç</th>
+                                   <th className="text-right py-2 font-bold text-gray-600">Ödenen</th>
+                                   <th className="text-right py-2 font-bold text-gray-600">Bakiye</th>
+                               </tr>
+                           </thead>
+                           <tbody className="text-sm">
+                               <tr className="border-b border-gray-100">
+                                   <td className="py-3">
+                                       <span className="block font-bold text-gray-800">Kurban Hissesi Satışı</span>
+                                       <span className="text-xs text-gray-500">Küpe No: #{selectedCustomer.animalTag} ({selectedCustomer.animalType})</span>
+                                   </td>
+                                   <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>
+                                   <td className="text-right py-3">0 TL</td>
+                                   <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>
+                               </tr>
+                               {selectedCustomer.amount_paid > 0 && (
+                                   <tr className="border-b border-gray-100 bg-green-50/50">
+                                       <td className="py-3 pl-2 italic">Yapılan Ödemeler Toplamı</td>
+                                       <td className="text-right py-3"></td>
+                                       <td className="text-right py-3 text-green-700 font-bold">-{selectedCustomer.amount_paid} TL</td>
+                                       <td className="text-right py-3"></td>
+                                   </tr>
+                               )}
+                           </tbody>
+                           <tfoot className="border-t-2 border-gray-800">
+                               <tr>
+                                   <td className="py-4 font-bold text-lg">GENEL TOPLAM</td>
+                                   <td className="text-right py-4 font-bold">{selectedCustomer.amount_agreed} TL</td>
+                                   <td className="text-right py-4 font-bold text-green-700">{selectedCustomer.amount_paid} TL</td>
+                                   <td className="text-right py-4 font-bold text-xl text-red-600">{selectedCustomer.remaining} TL</td>
+                               </tr>
+                           </tfoot>
+                       </table>
+                   </div>
+
+                   {/* Bank Info */}
+                    {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
+                        <div className="mt-8 p-4 border border-dashed border-gray-300 rounded bg-gray-50">
+                            <h4 className="font-bold mb-3 text-sm uppercase text-gray-500 border-b pb-1">Banka Hesap Bilgilerimiz</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                {settings.bank_accounts.map((acc, i) => (
+                                    <div key={i} className="flex flex-col">
+                                        <span className="font-bold text-gray-800">{acc.bank_name}</span>
+                                        <span className="text-gray-600">{acc.name}</span>
+                                        <span className="font-mono bg-white p-1 border rounded mt-1 select-all">{acc.iban}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                   {/* Print Button */}
+                   <div className="mt-8 flex justify-end no-print">
                         <style>{`
                             @media print {
                                 body * { visibility: hidden; }
                                 #statement-area, #statement-area * { visibility: visible; }
-                                #statement-area { position: absolute; left: 0; top: 0; width: 100%; padding: 2cm; }
+                                #statement-area { position: absolute; left: 0; top: 0; width: 100%; padding: 1cm; background: white; color: black; }
                                 .no-print { display: none; }
                             }
                         `}</style>
-                       <button onClick={() => window.print()} className="bg-gray-800 text-white px-6 py-2 rounded hover:bg-black no-print">
-                           Hesap Ekstresi Yazdır (A4)
+                       <button onClick={() => window.print()} className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-black font-bold flex items-center gap-2 shadow-lg">
+                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                           Yazdır (A4)
                        </button>
                    </div>
                </div>

@@ -23,7 +23,8 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
         default_image_url: form.default_image_url,
         theme: form.theme,
         animal_types: form.animal_types,
-        bank_accounts: form.bank_accounts
+        bank_accounts: form.bank_accounts,
+        notification_sound: form.notification_sound
       });
       alert("Ayarlar başarıyla kaydedildi.");
       onRefresh();
@@ -104,6 +105,18 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                >
                  <option value="light">Aydınlık (Light)</option>
                  <option value="dark">Karanlık (Dark)</option>
+               </select>
+             </div>
+             <div>
+               <label className="block text-sm mb-1 dark:text-gray-300">TV Bildirim Sesi</label>
+               <select 
+                  value={form.notification_sound || 'ding'}
+                  onChange={e => setForm({...form, notification_sound: e.target.value as any})}
+                  className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+               >
+                 <option value="ding">Ding (Hafif)</option>
+                 <option value="bell">Zil (Klasik)</option>
+                 <option value="gong">Gong (Güçlü)</option>
                </select>
              </div>
              <div>

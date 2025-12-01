@@ -108,7 +108,9 @@ export const configService = {
           admin_password: 'admin123', 
           theme: 'light',
           animal_types: ['Büyükbaş'],
-          bank_accounts: []
+          bank_accounts: [],
+          active_announcement: '',
+          notification_sound: 'ding'
       };
 
       if (error) {

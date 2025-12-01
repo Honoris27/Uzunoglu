@@ -6,11 +6,11 @@ export enum ShareStatus {
 }
 
 export enum SlaughterStatus {
-  Pending = 'SIRADA',
-  Cutting = 'KESIMDE',
-  Chopping = 'PARCALAMA',
-  Packing = 'PAKETLEME',
-  Done = 'TESLIM_EDILDI'
+  Pending = 'SIRADA',       // Kesim Yolu
+  Cut = 'KESILDI',          // Kesildi
+  Chopping = 'PARCALANIYOR',// Parçalanıyor
+  Sharing = 'PAY_EDILIYOR', // Pay Ediliyor
+  Delivered = 'TESLIM_EDILDI' // Teslim Edildi
 }
 
 export interface Shareholder {
@@ -27,11 +27,11 @@ export interface Shareholder {
 export interface Animal {
   id: string;
   tag_number: string;
-  type: string; // Changed from Enum to string for dynamic types
+  type: string;
   weight_kg: number;
   total_price: number;
   notes?: string;
-  image_url?: string; // Can be URL or Base64
+  image_url?: string;
   year: number;
   max_shares: number; 
   slaughter_status: SlaughterStatus;
@@ -50,8 +50,10 @@ export interface AppSettings {
   admin_password?: string;
   default_image_url?: string;
   theme: 'light' | 'dark';
-  animal_types?: string[]; // Dynamic types
-  bank_accounts?: BankAccount[]; // For receipts
+  animal_types?: string[];
+  bank_accounts?: BankAccount[];
+  active_announcement?: string; // New: For TV banner
+  notification_sound?: 'ding' | 'gong' | 'bell'; // New: Sound preference
 }
 
 export interface YearRecord {

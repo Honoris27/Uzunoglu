@@ -68,14 +68,8 @@ const Layout: React.FC<LayoutProps> = ({
           <NavItem id="sales" label="Satış & Ödeme" icon={WalletIcon} active={activePage === 'sales'} onClick={onNavigate} />
           <NavItem id="customers" label="Müşteri Listesi" icon={UsersIcon} active={activePage === 'customers'} onClick={onNavigate} />
           <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-               onClick={() => window.open(window.location.href + '?mode=tv', '_blank')}
-               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20`}
-            >
-              <CheckCircleIcon className="w-5 h-5" />
-              Canlı Takip (TV)
-            </button>
-             <NavItem id="settings" label="Ayarlar" icon={(p:any) => <svg {...p} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} active={activePage === 'settings'} onClick={onNavigate} />
+            <NavItem id="slaughterhouse" label="Kesimhane Yönetimi" icon={CheckCircleIcon} active={activePage === 'slaughterhouse'} onClick={onNavigate} />
+            <NavItem id="settings" label="Ayarlar" icon={(p:any) => <svg {...p} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} active={activePage === 'settings'} onClick={onNavigate} />
           </div>
         </nav>
 
