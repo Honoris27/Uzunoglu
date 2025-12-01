@@ -211,9 +211,8 @@ const LiveTVPage = () => {
 
   if (!audioEnabled) {
       return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white relative overflow-hidden">
-               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1541600383005-565c949cf777?q=80&w=2000&auto=format&fit=crop')] opacity-20 bg-cover bg-center"></div>
-               <div className="z-10 text-center space-y-8 p-12 bg-black/50 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl max-w-2xl mx-4 animate-in fade-in zoom-in duration-500">
+          <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white relative overflow-hidden">
+               <div className="z-10 text-center space-y-8 p-12 bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl max-w-2xl mx-4 animate-in fade-in zoom-in duration-500">
                   <h1 className="text-5xl font-black mb-4 tracking-tight">KESİMHANE CANLI YAYIN</h1>
                   <p className="text-xl text-gray-300">Sesli bildirimleri etkinleştirmek için lütfen aşağıdaki butona tıklayın.</p>
                   <button 
@@ -258,7 +257,7 @@ const LiveTVPage = () => {
       </div>
 
       {/* Main Board - Pillars Layout */}
-      <div className="flex-1 p-6 grid grid-cols-5 gap-6 h-full overflow-hidden bg-gradient-to-b from-slate-950 to-black">
+      <div className="flex-1 p-6 grid grid-cols-5 gap-6 h-full overflow-hidden bg-slate-950">
          <StatusColumn title="KESİM SIRA" color="bg-slate-900" borderColor="border-slate-700" titleColor="text-slate-300" items={filterAndSortByStatus(SlaughterStatus.Pending)} />
          <StatusColumn title="KESİLDİ" color="bg-red-950/30" borderColor="border-red-600" titleColor="text-red-500" glow="shadow-[0_0_30px_rgba(220,38,38,0.2)]" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
          <StatusColumn title="PARÇALAMA" color="bg-orange-950/30" borderColor="border-orange-600" titleColor="text-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
@@ -292,7 +291,7 @@ const LiveTVPage = () => {
                       
                       {/* Header Strip */}
                       <div className={`${activeAlert.color} p-8 flex items-center justify-center relative overflow-hidden`}>
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                          <div className="absolute inset-0 opacity-20 bg-repeat bg-[size:20px_20px] bg-[linear-gradient(45deg,#000_25%,transparent_25%,transparent_75%,#000_75%,#000),linear-gradient(45deg,#000_25%,transparent_25%,transparent_75%,#000_75%,#000)]"></div>
                           <span className="text-white text-7xl font-black uppercase tracking-widest drop-shadow-lg relative z-10 animate-pulse">{activeAlert.title}</span>
                       </div>
 

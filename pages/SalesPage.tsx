@@ -40,8 +40,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     phone: '',
     amount_agreed: '',
     amount_paid: '0',
-    status: ShareStatus.Unpaid,
-    share_count: 1 
+    status: ShareStatus.Unpaid
   });
 
   const [maxSharesInput, setMaxSharesInput] = useState(7); 
@@ -57,14 +56,13 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
   const debtors = allShareholders.filter(s => s.status !== ShareStatus.Paid && (s.amount_agreed - s.amount_paid) > 0);
   const selectedDebtor = debtors.find(d => d.id === selectedShareholderId);
 
-  // Auto-Calculate Price
+  // Auto-Calculate Price suggestion
   useEffect(() => {
-      if (selectedAnimal && formData.share_count > 0) {
+      if (selectedAnimal) {
           const pricePerShare = selectedAnimal.total_price / currentMaxShares;
-          const totalAgreed = Math.floor(pricePerShare * formData.share_count);
-          setFormData(prev => ({ ...prev, amount_agreed: totalAgreed.toString() }));
+          setFormData(prev => ({ ...prev, amount_agreed: Math.floor(pricePerShare).toString() }));
       }
-  }, [selectedAnimalId, maxSharesInput, formData.share_count, selectedAnimal, currentMaxShares]);
+  }, [selectedAnimalId, maxSharesInput, selectedAnimal, currentMaxShares]);
 
 
   const addToHistory = (record: TransactionRecord) => {
@@ -75,59 +73,53 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     e.preventDefault();
     if (!selectedAnimal || isSubmitting) return;
 
-    if (formData.share_count > availableShares) {
-        alert(`Hata: Sadece ${availableShares} adet hisse boşta. (İstenen: ${formData.share_count})`);
+    if (availableShares <= 0) {
+        alert("Bu hayvanda boş hisse kalmadı.");
         return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Update Max Shares first if it's the first sale. Wait for it to complete.
+      // 1. Update Max Shares first if it's the first sale
       if (isFirstSale) {
         await animalService.update(selectedAnimal.id, { max_shares: Number(maxSharesInput) });
       }
 
-      const count = Number(formData.share_count);
-      const sharePrice = Number(formData.amount_agreed) / count;
-      const paidPerShare = Number(formData.amount_paid) / count;
+      const agreedAmount = Number(formData.amount_agreed);
+      const paidAmount = Number(formData.amount_paid);
 
-      // 2. Prepare Bulk Data
-      const sharesToInsert = [];
-      for (let i = 0; i < count; i++) {
-          sharesToInsert.push({
-            animal_id: selectedAnimal.id,
-            name: formData.name,
-            phone: formData.phone,
-            amount_agreed: sharePrice,
-            amount_paid: paidPerShare,
-            status: formData.status as ShareStatus
-          });
-      }
+      // 2. Create Single Share
+      const shareData = {
+        animal_id: selectedAnimal.id,
+        name: formData.name,
+        phone: formData.phone,
+        amount_agreed: agreedAmount,
+        amount_paid: paidAmount,
+        status: formData.status as ShareStatus
+      };
 
-      // 3. Bulk Insert Shares using the specific service method for batching
-      const createdShares = await shareService.createBulk(sharesToInsert);
+      const createdShare = await shareService.create(shareData);
 
-      // 4. Create Payments if needed (Parallel execution for speed)
-      if (createdShares && createdShares.length > 0 && paidPerShare > 0) {
-          const paymentsToInsert = createdShares.map(share => ({
-              share_id: share.id,
-              amount: paidPerShare,
-              type: 'PAYMENT' as const,
+      // 3. Create Payment Log
+      if (paidAmount > 0) {
+          await paymentService.create({
+              share_id: createdShare.id,
+              amount: paidAmount,
+              type: 'PAYMENT',
               description: 'İlk Satış Ödemesi'
-          }));
-          await paymentService.createBulk(paymentsToInsert);
+          });
       }
 
       const transactionData = { 
           type: 'HİSSE SATIŞI',
           customer: formData.name,
           phone: formData.phone,
-          amount_total: Number(formData.amount_agreed),
-          amount_paid: Number(formData.amount_paid),
+          amount_total: agreedAmount,
+          amount_paid: paidAmount,
           animal_tag: selectedAnimal.tag_number,
-          remaining: Number(formData.amount_agreed) - Number(formData.amount_paid),
-          share_count: formData.share_count
+          remaining: agreedAmount - paidAmount,
+          share_count: 1
       };
 
       setLastTransaction(transactionData);
@@ -136,16 +128,16 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
           time: new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}),
           type: 'SATIŞ',
           customer: formData.name,
-          amount: Number(formData.amount_paid),
-          detail: `${formData.share_count} Hisse - #${selectedAnimal.tag_number}`
+          amount: paidAmount,
+          detail: `1 Hisse - #${selectedAnimal.tag_number}`
       });
 
       setIsReceiptOpen(true);
-      setFormData({ name: '', phone: '', amount_agreed: '', amount_paid: '0', status: ShareStatus.Unpaid, share_count: 1 });
+      setFormData({ name: '', phone: '', amount_agreed: '', amount_paid: '0', status: ShareStatus.Unpaid });
       refresh();
     } catch (err) {
       console.error(err);
-      alert("Satış işlemi sırasında bir hata oluştu. Lütfen verileri kontrol edip tekrar deneyin.");
+      alert("Satış işlemi sırasında bir hata oluştu.");
     } finally {
         setIsSubmitting(false);
     }
@@ -253,7 +245,6 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                             if(animal) {
                                 const shares = animal.shares?.length === 0 ? (animal.type.includes('üçük') ? 1 : 7) : animal.max_shares;
                                 setMaxSharesInput(shares);
-                                setFormData(prev => ({...prev, share_count: 1}));
                             }
                         }}
                         className="w-full p-4 border-none rounded-xl bg-white dark:bg-gray-900/50 shadow-inner focus:ring-2 focus:ring-primary-500 outline-none transition-all dark:text-white"
@@ -296,24 +287,11 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/10 p-5 rounded-xl border border-amber-200 dark:border-amber-800/30">
-                    <div className="flex gap-6 items-end">
-                        <div className="w-32">
-                             <label className="block text-xs font-bold uppercase text-amber-800 dark:text-amber-500 mb-1">Hisse Adedi</label>
-                             <input 
-                                type="number" 
-                                min="1" 
-                                max={availableShares} 
-                                value={formData.share_count} 
-                                onChange={e => setFormData({...formData, share_count: Number(e.target.value)})} 
-                                className="w-full p-3 border-2 border-amber-300 dark:border-amber-600 rounded-lg font-black text-center text-xl bg-white dark:bg-gray-900 dark:text-white" 
-                             />
-                        </div>
-                        <div className="flex-1">
-                             <label className="block text-xs font-bold uppercase text-amber-800 dark:text-amber-500 mb-1">Anlaşılan TOPLAM Tutar</label>
-                             <div className="relative">
-                                <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-3 border-none shadow-inner rounded-lg font-bold text-lg bg-white dark:bg-gray-900 dark:text-white pr-10" />
-                                <span className="absolute right-3 top-3.5 text-gray-400 font-bold">TL</span>
-                             </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-amber-800 dark:text-amber-500 mb-1">Hisse Tutarı</label>
+                        <div className="relative">
+                        <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-3 border-none shadow-inner rounded-lg font-bold text-lg bg-white dark:bg-gray-900 dark:text-white pr-10" />
+                        <span className="absolute right-3 top-3.5 text-gray-400 font-bold">TL</span>
                         </div>
                     </div>
                 </div>
