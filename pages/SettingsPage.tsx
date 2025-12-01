@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { AppSettings, BankAccount } from '../types';
-import { configService } from '../services/supabaseService';
+import { configService, animalService } from '../services/supabaseService';
 import { TrashIcon, PlusIcon } from '../components/Icons';
 
 interface Props {
@@ -15,6 +15,8 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
   const [newYear, setNewYear] = useState('');
   const [newType, setNewType] = useState('');
   const [newBank, setNewBank] = useState<BankAccount>({ bank_name: '', iban: '', name: '' });
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     try {
@@ -24,7 +26,9 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
         theme: form.theme,
         animal_types: form.animal_types,
         bank_accounts: form.bank_accounts,
-        notification_sound: form.notification_sound
+        notification_sound: form.notification_sound,
+        site_title: form.site_title,
+        logo_url: form.logo_url
       });
       alert("Ayarlar başarıyla kaydedildi.");
       onRefresh();
@@ -75,12 +79,111 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
       }));
   };
 
+  const handleBackup = async () => {
+      try {
+          const data = await animalService.getAllForBackup();
+          const backupObj = {
+              timestamp: new Date().toISOString(),
+              data: data
+          };
+          const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `kurban_yedek_${new Date().toLocaleDateString('tr-TR')}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+      } catch (e) {
+          alert("Yedekleme başarısız.");
+          console.error(e);
+      }
+  };
+
+  const handleRestoreClick = () => {
+      if (confirm("DİKKAT! Yükleme işlemi mevcut verileri SİLECEK ve yedek dosyasındaki verileri yükleyecektir. Emin misiniz?")) {
+          fileInputRef.current?.click();
+      }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              setRestoring(true);
+              const json = JSON.parse(event.target?.result as string);
+              if (json && json.data) {
+                  await animalService.restoreData(json.data);
+                  alert("Veriler başarıyla yüklendi. Sayfa yenileniyor...");
+                  window.location.reload();
+              } else {
+                  throw new Error("Geçersiz yedek dosyası");
+              }
+          } catch (err) {
+              alert("Yükleme hatası: Dosya bozuk veya uyumsuz.");
+              console.error(err);
+          } finally {
+              setRestoring(false);
+          }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setForm(prev => ({ ...prev, logo_url: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
   return (
     <div className="max-w-4xl space-y-8 pb-10">
       <h2 className="text-2xl font-bold mb-6 dark:text-white">Sistem Ayarları</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
+        {/* Site Identity Settings */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+           <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
+               <span>🏢</span> Site Kimliği
+           </h3>
+           <div className="space-y-4">
+             <div>
+               <label className="block text-sm mb-1 dark:text-gray-300">Site Adı</label>
+               <input 
+                 type="text" 
+                 value={form.site_title || 'BANA Kurban'} 
+                 onChange={e => setForm({...form, site_title: e.target.value})}
+                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+                 placeholder="Örn: Kardeşler Kurbanlık"
+               />
+             </div>
+             <div>
+               <label className="block text-sm mb-1 dark:text-gray-300">Site Logosu (Dosya Yükle)</label>
+               <input 
+                 type="file" 
+                 accept="image/*"
+                 onChange={handleLogoUpload}
+                 className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-sm"
+               />
+               {form.logo_url && (
+                   <div className="mt-2 bg-gray-100 dark:bg-gray-900 p-2 rounded inline-block">
+                       <img src={form.logo_url} alt="Logo Önizleme" className="h-12 w-auto object-contain" />
+                   </div>
+               )}
+             </div>
+           </div>
+        </div>
+
         {/* General Settings */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
            <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2">
@@ -231,9 +334,51 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
            </div>
         </div>
 
+        {/* Data Backup */}
+        <div className="md:col-span-2 bg-purple-50 dark:bg-purple-900/20 p-6 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800">
+            <h3 className="text-lg font-bold mb-4 dark:text-white flex items-center gap-2 text-purple-800 dark:text-purple-300">
+               <span>💾</span> Veri Yedekleme & Geri Yükleme
+           </h3>
+           <div className="flex flex-col md:flex-row gap-4">
+               <div className="flex-1">
+                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                       Tüm hayvan, hisse ve müşteri kayıtlarını bilgisayarınıza indirin.
+                   </p>
+                   <button 
+                    onClick={handleBackup}
+                    className="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-purple-700 flex items-center gap-2"
+                   >
+                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                       Yedek İndir (JSON)
+                   </button>
+               </div>
+               <div className="flex-1 border-t md:border-t-0 md:border-l border-gray-300 dark:border-gray-600 pt-4 md:pt-0 md:pl-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                       Önceden aldığınız yedeği geri yükleyin. 
+                       <strong className="block text-red-500 mt-1">DİKKAT: Mevcut veriler silinecektir!</strong>
+                   </p>
+                   <input 
+                        type="file" 
+                        accept=".json" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        onChange={handleFileChange}
+                   />
+                   <button 
+                    onClick={handleRestoreClick}
+                    disabled={restoring}
+                    className="bg-gray-700 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-800 flex items-center gap-2 disabled:opacity-50"
+                   >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                       {restoring ? 'Yükleniyor...' : 'Yedek Yükle'}
+                   </button>
+               </div>
+           </div>
+        </div>
+
       </div>
 
-      <div className="fixed bottom-0 left-64 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+      <div className="fixed bottom-0 left-64 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-end z-20">
           <button onClick={handleSave} className="bg-primary-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-primary-700 shadow-lg hover:scale-105 transition-transform">
               Tüm Ayarları Kaydet
           </button>

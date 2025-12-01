@@ -172,6 +172,8 @@ function App() {
       selectedYear={selectedYear}
       onYearChange={handleYearChange}
       isDarkMode={settings.theme === 'dark'}
+      siteTitle={settings.site_title}
+      logoUrl={settings.logo_url}
     >
       {renderContent()}
     </Layout>

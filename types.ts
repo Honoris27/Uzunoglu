@@ -52,8 +52,12 @@ export interface AppSettings {
   theme: 'light' | 'dark';
   animal_types?: string[];
   bank_accounts?: BankAccount[];
-  active_announcement?: string; // New: For TV banner
-  notification_sound?: 'ding' | 'gong' | 'bell'; // New: Sound preference
+  active_announcement?: string; 
+  announcement_duration_minutes?: number;
+  announcement_start_time?: string;
+  notification_sound?: 'ding' | 'gong' | 'bell';
+  site_title?: string; // New
+  logo_url?: string; // New
 }
 
 export interface YearRecord {

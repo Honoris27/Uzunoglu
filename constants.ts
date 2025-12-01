@@ -17,7 +17,11 @@ create table if not exists public.app_settings (
   animal_types jsonb default '["Büyükbaş", "Küçükbaş"]'::jsonb,
   bank_accounts jsonb default '[]'::jsonb,
   active_announcement text default '',
-  notification_sound text default 'ding'
+  announcement_duration_minutes int default 0,
+  announcement_start_time text default '',
+  notification_sound text default 'ding',
+  site_title text default 'BANA Kurban',
+  logo_url text default ''
 );
 
 -- Insert default settings if not exists

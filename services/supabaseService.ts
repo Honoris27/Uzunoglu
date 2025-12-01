@@ -25,6 +25,30 @@ export const animalService = {
     }
   },
 
+  async getAllForBackup() {
+    const { data: animals } = await supabase.from('animals').select('*');
+    const { data: shares } = await supabase.from('shares').select('*');
+    return { animals, shares };
+  },
+
+  async restoreData(backupData: any) {
+      // Very basic restore: Delete all and re-insert. Use with caution.
+      // In a production app, you might want "merge" or "smart restore".
+      if (backupData.animals && Array.isArray(backupData.animals)) {
+          // Clean existing for safety if full restore
+          await supabase.from('shares').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+          await supabase.from('animals').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+          const { error: err1 } = await supabase.from('animals').insert(backupData.animals);
+          if (err1) throw err1;
+          
+          if (backupData.shares && Array.isArray(backupData.shares) && backupData.shares.length > 0) {
+              const { error: err2 } = await supabase.from('shares').insert(backupData.shares);
+              if (err2) throw err2;
+          }
+      }
+  },
+
   async getById(id: string) {
     const { data, error } = await supabase
       .from('animals')
@@ -110,7 +134,11 @@ export const configService = {
           animal_types: ['Büyükbaş'],
           bank_accounts: [],
           active_announcement: '',
-          notification_sound: 'ding'
+          announcement_duration_minutes: 0,
+          announcement_start_time: '',
+          notification_sound: 'ding',
+          site_title: 'BANA Kurban',
+          logo_url: ''
       };
 
       if (error) {
@@ -123,14 +151,16 @@ export const configService = {
       return { ...defaults, ...data };
     } catch (error) {
       console.warn("Failed to fetch settings (likely first run):", error);
-      return { id: 0, admin_password: 'admin123', theme: 'light', animal_types: ['Büyükbaş'] } as AppSettings;
+      return { id: 0, admin_password: 'admin123', theme: 'light', animal_types: ['Büyükbaş'], site_title: 'BANA Kurban' } as AppSettings;
     }
   },
   
   async updateSettings(updates: Partial<AppSettings>) {
     const { data: existing } = await supabase.from('app_settings').select('id').limit(1).single();
     if (existing) {
-        const { data, error } = await supabase.from('app_settings').update(updates).eq('id', existing.id).select().single();
+        // Ensure complex types are passed correctly for JSONB
+        const payload = { ...updates };
+        const { data, error } = await supabase.from('app_settings').update(payload).eq('id', existing.id).select().single();
         if (error) throw error;
         return data;
     }

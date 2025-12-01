@@ -11,6 +11,8 @@ interface LayoutProps {
   selectedYear: number;
   onYearChange: (year: number) => void;
   isDarkMode: boolean;
+  siteTitle?: string;
+  logoUrl?: string;
 }
 
 const NavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
@@ -28,7 +30,7 @@ const NavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
 );
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, activePage, onNavigate, onLogout, years, selectedYear, onYearChange, isDarkMode 
+  children, activePage, onNavigate, onLogout, years, selectedYear, onYearChange, isDarkMode, siteTitle, logoUrl
 }) => {
   return (
     <div className={`min-h-screen flex ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -36,10 +38,14 @@ const Layout: React.FC<LayoutProps> = ({
       <aside className={`w-64 fixed inset-y-0 left-0 z-20 flex flex-col border-r ${
         isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
       }`}>
-        <div className="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
-           <TagIcon className="w-8 h-8 text-primary-600 mr-2" />
-           <span className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-             BANA <span className="text-primary-600">Kurban</span>
+        <div className="h-20 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
+           {logoUrl ? (
+             <img src={logoUrl} alt="Logo" className="h-10 w-auto object-contain mr-2" />
+           ) : (
+             <TagIcon className="w-8 h-8 text-primary-600 mr-2 shrink-0" />
+           )}
+           <span className={`text-lg font-bold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+             {siteTitle || "BANA Kurban"}
            </span>
         </div>
 
