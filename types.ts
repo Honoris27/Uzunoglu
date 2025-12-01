@@ -65,7 +65,7 @@ export interface AppSettings {
   active_announcement?: string; 
   announcement_duration_sec?: number;
   announcement_timestamp?: string;
-  notification_sound?: 'ding' | 'gong' | 'bell' | 'custom'; // Added custom
+  notification_sound?: 'ding' | 'gong' | 'bell' | 'siren' | 'horn' | 'whistle' | 'custom'; // Updated to include all used sounds
   custom_sound_url?: string; // New field for Base64 audio
   site_title?: string;
   logo_url?: string;

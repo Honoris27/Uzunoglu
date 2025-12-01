@@ -48,22 +48,6 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
     } catch(e) { alert("Yıl eklenemedi"); }
   };
 
-  const addType = () => {
-      if (!newType) return;
-      setForm(prev => ({
-          ...prev,
-          animal_types: [...(prev.animal_types || []), newType]
-      }));
-      setNewType('');
-  };
-
-  const removeType = (index: number) => {
-      setForm(prev => ({
-          ...prev,
-          animal_types: prev.animal_types?.filter((_, i) => i !== index)
-      }));
-  };
-
   const addBank = () => {
       if (!newBank.bank_name || !newBank.iban) return;
       setForm(prev => ({
@@ -146,6 +130,17 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
       }
   };
 
+  const handleDefaultImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setForm(prev => ({ ...prev, default_image_url: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
   const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
@@ -168,7 +163,6 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
           return;
       }
       
-      // Default fallback tones for preview
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -176,8 +170,9 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
       gain.connect(ctx.destination);
       
       const now = ctx.currentTime;
+      const type = form.notification_sound;
 
-      if (form.notification_sound === 'gong') {
+      if (type === 'gong') {
           osc.type = 'sine';
           osc.frequency.setValueAtTime(100, now);
           osc.frequency.exponentialRampToValueAtTime(40, now + 1.5);
@@ -185,13 +180,46 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
           gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
           osc.start(now);
           osc.stop(now + 2);
-      } else {
+      } else if (type === 'bell') {
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(600, now);
-          gain.gain.setValueAtTime(0.3, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 1);
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.3, now + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
           osc.start(now);
-          osc.stop(now + 1);
+          osc.stop(now + 1.5);
+      } else if (type === 'siren') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.linearRampToValueAtTime(800, now + 0.5);
+          osc.frequency.linearRampToValueAtTime(400, now + 1.0);
+          gain.gain.setValueAtTime(0.1, now);
+          osc.start(now);
+          osc.stop(now + 1.0);
+      } else if (type === 'horn') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+          osc.start(now);
+          osc.stop(now + 0.8);
+      } else if (type === 'whistle') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1200, now);
+          osc.frequency.linearRampToValueAtTime(1000, now + 0.1);
+          osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+          gain.gain.setValueAtTime(0.1, now);
+          osc.start(now);
+          osc.stop(now + 0.5);
+      } else {
+          // Standard Ding
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.start(now);
+          osc.stop(now + 0.5);
       }
   };
 
@@ -259,6 +287,21 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                </select>
              </div>
              
+             <div>
+                <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Varsayılan Hayvan Görseli</label>
+                <div className="flex gap-4 items-center">
+                   {form.default_image_url && (
+                       <img src={form.default_image_url} alt="Default" className="h-12 w-12 object-cover bg-gray-100 rounded-lg shadow-sm" />
+                   )}
+                   <input 
+                     type="file" 
+                     accept="image/*"
+                     onChange={handleDefaultImageUpload}
+                     className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                   />
+                </div>
+             </div>
+
              {/* Sound Settings */}
              <div className="bg-gray-50/50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
                <label className="block text-sm font-bold dark:text-white mb-2">TV Bildirim Sesi</label>
@@ -266,19 +309,22 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                    <select 
                       value={form.notification_sound || 'ding'}
                       onChange={e => setForm({...form, notification_sound: e.target.value as any})}
-                      className="flex-1 border-none bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:text-white"
+                      className="flex-1 border-none bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:text-white outline-none"
                    >
                      <option value="ding">Standart (Ding)</option>
                      <option value="bell">Zil Sesi</option>
                      <option value="gong">Gong Sesi</option>
+                     <option value="siren">Siren Sesi</option>
+                     <option value="horn">Korna Sesi</option>
+                     <option value="whistle">Düdük Sesi</option>
                      <option value="custom">Özel Yükle...</option>
                    </select>
                    <button 
                      onClick={playPreviewSound}
-                     className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors shadow-sm"
+                     className="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm"
                      title="Sesi Dinle"
                    >
-                       🔊
+                       ▶ Önizle
                    </button>
                </div>
                

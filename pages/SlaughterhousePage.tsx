@@ -35,7 +35,7 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
           await configService.updateSettings({ 
               active_announcement: announcement,
               announcement_duration_sec: Number(duration),
-              announcement_timestamp: new Date().toISOString() // Updates timestamp to trigger sound/freshness
+              announcement_timestamp: new Date().toISOString()
           });
           alert("Duyuru ekrana gönderildi.");
       } catch(e) { alert("Hata"); }
@@ -43,92 +43,107 @@ const SlaughterhousePage: React.FC<Props> = ({ animals, refresh }) => {
   };
 
   const columns = [
-      { id: SlaughterStatus.Pending, label: 'KESİM YOLU / SIRA', color: 'bg-gray-200 text-gray-800' },
-      { id: SlaughterStatus.Cut, label: 'KESİLDİ', color: 'bg-red-600 text-white' },
-      { id: SlaughterStatus.Chopping, label: 'PARÇALANIYOR', color: 'bg-orange-500 text-white' },
-      { id: SlaughterStatus.Sharing, label: 'PAY EDİLİYOR', color: 'bg-yellow-500 text-white' },
-      { id: SlaughterStatus.Delivered, label: 'TESLİM EDİLDİ', color: 'bg-green-600 text-white' }
+      { id: SlaughterStatus.Pending, label: 'KESİM YOLU / SIRA', bg: 'bg-slate-50 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-700', text: 'text-slate-600 dark:text-slate-300' },
+      { id: SlaughterStatus.Cut, label: 'KESİLDİ', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-200 dark:border-red-800', text: 'text-red-600 dark:text-red-400' },
+      { id: SlaughterStatus.Chopping, label: 'PARÇALAMA', bg: 'bg-orange-50 dark:bg-orange-900/10', border: 'border-orange-200 dark:border-orange-800', text: 'text-orange-600 dark:text-orange-400' },
+      { id: SlaughterStatus.Sharing, label: 'PAYLAMA', bg: 'bg-yellow-50 dark:bg-yellow-900/10', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-600 dark:text-yellow-400' },
+      { id: SlaughterStatus.Delivered, label: 'TESLİM', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-600 dark:text-emerald-400' }
   ];
 
   return (
-    <div className="pb-10">
+    <div className="pb-10 h-[calc(100vh-140px)] flex flex-col">
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold dark:text-white">Kesimhane Yönetimi</h2>
+            <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">
+                <span className="p-2 bg-slate-200 dark:bg-slate-700 rounded-lg">🔪</span> Kesimhane Yönetimi
+            </h2>
             <button
                onClick={() => window.open(window.location.href.split('?')[0] + '?mode=tv', '_blank')}
-               className="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-purple-700 flex items-center gap-2"
+               className="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-purple-700 flex items-center gap-2 hover:scale-105 transition-transform"
             >
-                📺 TV Yayınını Başlat
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                TV Yayınını Başlat
             </button>
         </div>
 
-        {/* Announcement Section */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 w-full">
-                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">TV Duyuru Metni</label>
-                <input 
-                    type="text" 
-                    value={announcement}
-                    onChange={e => setAnnouncement(e.target.value)}
-                    placeholder="Ekranda görünecek duyuru metnini giriniz..."
-                    className="w-full border p-3 rounded dark:bg-gray-700 dark:text-white"
-                />
+        {/* Broadcast Control Bar */}
+        <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-xl mb-6 flex flex-col md:flex-row gap-4 items-center border border-slate-700">
+            <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="font-bold tracking-widest text-xs text-slate-400 uppercase">Canlı Yayın Paneli</span>
             </div>
-            <div className="w-full md:w-32">
-                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Süre (Saniye)</label>
-                <input 
-                    type="number" 
-                    value={duration}
-                    onChange={e => setDuration(e.target.value)}
-                    className="w-full border p-3 rounded dark:bg-gray-700 dark:text-white text-center font-bold"
-                />
+            <div className="flex-1 w-full flex gap-4">
+                <div className="flex-1">
+                    <input 
+                        type="text" 
+                        value={announcement}
+                        onChange={e => setAnnouncement(e.target.value)}
+                        placeholder="📢 Duyuru metnini buraya yazın..."
+                        className="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                </div>
+                <div className="w-24 relative">
+                    <input 
+                        type="number" 
+                        value={duration}
+                        onChange={e => setDuration(e.target.value)}
+                        className="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-white text-center font-bold outline-none"
+                    />
+                    <span className="absolute right-2 top-2.5 text-[10px] text-slate-500">SN</span>
+                </div>
             </div>
             <button 
                 onClick={updateAnnouncement}
                 disabled={loading}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 h-full w-full md:w-auto"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold uppercase tracking-wider text-sm transition-colors shadow-lg shadow-blue-500/30"
             >
-                {loading ? '...' : 'YAYINLA'}
+                {loading ? '...' : 'Yayınla'}
             </button>
         </div>
 
-        {/* Board */}
-        <div className="grid grid-cols-5 gap-4 overflow-x-auto min-w-[1000px]">
-            {columns.map(col => (
-                <div key={col.id} className="flex flex-col h-[calc(100vh-250px)] bg-gray-50 dark:bg-gray-800/50 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <div className={`${col.color} p-3 text-center font-bold text-sm tracking-wide shadow-sm z-10`}>
-                        {col.label}
-                    </div>
-                    <div className="flex-1 p-2 overflow-y-auto space-y-2">
-                        {animals.filter(a => a.slaughter_status === col.id).map(animal => (
-                            <div key={animal.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className="text-lg font-black dark:text-white">#{animal.tag_number}</span>
-                                    <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">{animal.type}</span>
+        {/* Kanban Board */}
+        <div className="flex-1 overflow-x-auto">
+            <div className="flex gap-4 min-w-[1200px] h-full pb-4">
+                {columns.map(col => (
+                    <div key={col.id} className={`flex-1 flex flex-col ${col.bg} rounded-2xl border ${col.border} backdrop-blur-sm bg-opacity-80`}>
+                        <div className={`p-4 border-b ${col.border} flex justify-between items-center sticky top-0 bg-inherit rounded-t-2xl z-10`}>
+                            <span className={`font-black text-sm tracking-wide ${col.text}`}>{col.label}</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white/50 dark:bg-black/20 ${col.text}`}>
+                                {animals.filter(a => a.slaughter_status === col.id).length}
+                            </span>
+                        </div>
+                        <div className="flex-1 p-3 overflow-y-auto custom-scrollbar space-y-3">
+                            {animals.filter(a => a.slaughter_status === col.id).map(animal => (
+                                <div key={animal.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span className="text-2xl font-black text-slate-800 dark:text-white">#{animal.tag_number}</span>
+                                        <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">{animal.type}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {col.id !== SlaughterStatus.Pending && (
+                                            <button 
+                                                onClick={() => handleUpdateStatus(animal.id, getPrevStatus(col.id))}
+                                                className="flex-1 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-slate-500 dark:text-slate-300 transition-colors flex items-center justify-center"
+                                                title="Geri Al"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                            </button>
+                                        )}
+                                        {col.id !== SlaughterStatus.Delivered && (
+                                            <button 
+                                                onClick={() => handleUpdateStatus(animal.id, getNextStatus(col.id))}
+                                                className={`flex-1 py-2 rounded-lg text-white font-bold transition-colors flex items-center justify-center shadow-md ${col.id === SlaughterStatus.Pending ? 'bg-slate-800 hover:bg-slate-700 w-full' : 'bg-blue-600 hover:bg-blue-500'}`}
+                                                title="Sonraki Aşama"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-1 mt-2">
-                                    {col.id !== SlaughterStatus.Pending && (
-                                        <button 
-                                            onClick={() => handleUpdateStatus(animal.id, getPrevStatus(col.id))}
-                                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs py-1 rounded"
-                                        >
-                                            &lt; Geri
-                                        </button>
-                                    )}
-                                    {col.id !== SlaughterStatus.Delivered && (
-                                        <button 
-                                            onClick={() => handleUpdateStatus(animal.id, getNextStatus(col.id))}
-                                            className={`text-white text-xs py-1 rounded col-span-${col.id === SlaughterStatus.Pending ? '2' : '1'} bg-blue-600 hover:bg-blue-700`}
-                                        >
-                                            İleri &gt;
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     </div>
   );

@@ -55,7 +55,7 @@ const LiveTVPage = () => {
         const currentYear = years[0]; 
         const data = await animalService.getAll(currentYear);
         
-        // Sort data based on updated_at for the lists
+        // Sort data based on updated_at
         setAnimals(data);
         setLastUpdated(new Date());
         
@@ -67,7 +67,6 @@ const LiveTVPage = () => {
   };
 
   const checkChanges = (data: Animal[], currentSettings: AppSettings) => {
-      // Create a map of current statuses for comparison
       const currentStatusMap = new Map();
       data.forEach(a => currentStatusMap.set(a.id, a.slaughter_status));
 
@@ -84,27 +83,28 @@ const LiveTVPage = () => {
           if (oldStatus && oldStatus !== newStatus) {
               
               let title = "DURUM GÜNCELLENDİ";
-              let color = "bg-gray-800";
+              let color = "bg-slate-800";
               let soundType = currentSettings.notification_sound || 'ding';
 
               // Specific Logic for CUTTING (KESİLDI)
               if (newStatus === SlaughterStatus.Cut) {
                   title = "KESİM TAMAMLANDI";
-                  color = "bg-gradient-to-r from-red-600 to-rose-700";
-                  soundType = 'gong'; // distinct sound for cut
+                  color = "bg-red-600";
+                  soundType = 'gong'; 
               } else if (newStatus === SlaughterStatus.Chopping) {
-                  title = "PARÇALANIYOR";
-                  color = "bg-gradient-to-r from-orange-500 to-amber-600";
+                  title = "PARÇALAMA BAŞLADI";
+                  color = "bg-orange-600";
+                  soundType = 'horn';
               } else if (newStatus === SlaughterStatus.Sharing) {
                   title = "HİSSE PAYLAŞIMI";
-                  color = "bg-gradient-to-r from-yellow-400 to-orange-500";
+                  color = "bg-yellow-500";
+                  soundType = 'whistle';
               } else if (newStatus === SlaughterStatus.Delivered) {
                   title = "TESLİM EDİLİYOR";
-                  color = "bg-gradient-to-r from-green-500 to-emerald-700";
+                  color = "bg-emerald-600";
                   soundType = 'bell'; 
               }
 
-              // Trigger Alert if it's not a revert to pending
               if (newStatus !== SlaughterStatus.Pending) {
                   setActiveAlert({ animal, status: newStatus, color: color, title });
                   
@@ -114,10 +114,10 @@ const LiveTVPage = () => {
                       setTimeout(() => speak(animal.tag_number, title), 1000);
                   }
                   
-                  // Auto close alert after 10 seconds
-                  setTimeout(() => setActiveAlert(null), 10000);
+                  // Auto close alert after 8 seconds
+                  setTimeout(() => setActiveAlert(null), 8000);
               }
-              break; // Handle one alert at a time to avoid chaos
+              break; 
           }
       }
       
@@ -125,7 +125,6 @@ const LiveTVPage = () => {
   };
 
   const playTone = (type: string = 'ding', currentSettings?: AppSettings) => {
-      // Priority: Custom Sound if selected
       if (currentSettings?.notification_sound === 'custom' && currentSettings.custom_sound_url) {
           const audio = new Audio(currentSettings.custom_sound_url);
           audio.volume = 1.0;
@@ -143,7 +142,6 @@ const LiveTVPage = () => {
       const now = ctx.currentTime;
       
       if (type === 'gong') {
-          // Low, resonant gong for Cutting
           osc.type = 'sine';
           osc.frequency.setValueAtTime(100, now);
           osc.frequency.exponentialRampToValueAtTime(40, now + 1.5);
@@ -159,8 +157,30 @@ const LiveTVPage = () => {
           gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
           osc.start(now);
           osc.stop(now + 1.5);
+      } else if (type === 'siren') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.linearRampToValueAtTime(800, now + 0.5);
+          osc.frequency.linearRampToValueAtTime(400, now + 1.0);
+          gain.gain.setValueAtTime(0.2, now);
+          osc.start(now);
+          osc.stop(now + 1.0);
+      } else if (type === 'horn') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+          osc.start(now);
+          osc.stop(now + 0.8);
+      } else if (type === 'whistle') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1200, now);
+          osc.frequency.linearRampToValueAtTime(1000, now + 0.1);
+          osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+          gain.gain.setValueAtTime(0.2, now);
+          osc.start(now);
+          osc.stop(now + 0.5);
       } else {
-          // Standard Ding
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
@@ -183,8 +203,6 @@ const LiveTVPage = () => {
       return animals
         .filter(a => a.slaughter_status === status)
         .sort((a, b) => {
-            // Sort by Updated At ASCENDING (Oldest update first, Newest update last)
-            // This ensures "En son gelen sona gelsin" (Last one comes to end)
             const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
             const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
             return timeA - timeB; 
@@ -195,18 +213,18 @@ const LiveTVPage = () => {
       return (
           <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white relative overflow-hidden">
                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1541600383005-565c949cf777?q=80&w=2000&auto=format&fit=crop')] opacity-20 bg-cover bg-center"></div>
-               <div className="z-10 text-center space-y-8 p-12 bg-black/50 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl max-w-2xl mx-4">
-                  <h1 className="text-5xl font-bold mb-4">CANLI TAKİP SİSTEMİ</h1>
-                  <p className="text-xl text-gray-300">Yayını başlatmak ve sesli bildirimleri açmak için butona tıklayınız.</p>
+               <div className="z-10 text-center space-y-8 p-12 bg-black/50 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl max-w-2xl mx-4 animate-in fade-in zoom-in duration-500">
+                  <h1 className="text-5xl font-black mb-4 tracking-tight">KESİMHANE CANLI YAYIN</h1>
+                  <p className="text-xl text-gray-300">Sesli bildirimleri etkinleştirmek için lütfen aşağıdaki butona tıklayın.</p>
                   <button 
                     onClick={() => setAudioEnabled(true)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-2xl font-bold px-12 py-6 rounded-2xl transition-all transform hover:scale-105 shadow-[0_0_40px_rgba(16,185,129,0.5)] flex items-center justify-center gap-4 w-full"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-2xl font-bold px-12 py-6 rounded-2xl transition-all transform hover:scale-105 shadow-[0_0_50px_rgba(16,185,129,0.5)] flex items-center justify-center gap-4 w-full"
                   >
-                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-10 h-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      YAYINI BAŞLAT
+                      BAŞLAT
                   </button>
                </div>
           </div>
@@ -214,57 +232,51 @@ const LiveTVPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white font-sans overflow-hidden relative flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-white font-sans overflow-hidden relative flex flex-col">
       
-      {/* Modern Header */}
-      <div className="h-24 flex justify-between items-center px-8 bg-slate-900/90 backdrop-blur-sm border-b border-slate-800 z-10 shadow-lg relative">
+      {/* Broadcast Header */}
+      <div className="h-24 flex justify-between items-center px-8 bg-slate-900 border-b border-slate-800 z-10 shadow-lg">
          <div className="flex items-center gap-6">
-             <div className="relative">
-                <div className="absolute inset-0 bg-red-500 rounded blur opacity-50 animate-pulse"></div>
-                <div className="relative bg-red-600 text-white font-black px-4 py-1.5 rounded text-lg tracking-wider border border-red-500">CANLI</div>
+             <div className="flex flex-col items-center">
+                <span className="text-xs font-bold text-red-500 tracking-[0.2em] mb-1 animate-pulse">● CANLI</span>
+                <div className="bg-red-600 text-white font-black px-3 py-1 rounded text-xl border-2 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+                    LIVE
+                </div>
              </div>
              <div>
-                <h1 className="text-3xl font-black text-white tracking-tight">{settings?.site_title || 'KURBAN TAKİP'}</h1>
-                <p className="text-sm text-slate-400 font-medium tracking-widest uppercase">Kesimhane Durum Ekranı</p>
+                <h1 className="text-4xl font-black text-white tracking-tighter uppercase">{settings?.site_title || 'KURBAN TAKİP'}</h1>
+                <p className="text-sm text-slate-400 font-bold tracking-[0.5em] uppercase">Kesimhane Durum Ekranı</p>
              </div>
          </div>
-         <div className="flex items-center gap-6">
-             <div className="text-right">
-                 <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">Bağlantı Durumu</div>
-                 <div className="flex items-center justify-end gap-2">
-                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                     <span className="text-emerald-500 text-sm font-bold">ÇEVRİMİÇİ</span>
-                 </div>
-             </div>
-             <div className="h-12 w-[1px] bg-slate-700"></div>
-             <div className="text-right">
-                 <div className="text-5xl font-mono text-emerald-400 font-bold drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]">
+         <div className="flex items-center gap-8">
+             <div className="text-right hidden md:block">
+                 <div className="text-6xl font-mono text-white font-bold tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
                      {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                  </div>
              </div>
          </div>
       </div>
 
-      {/* Main Board - Grid Layout */}
-      <div className="flex-1 p-6 grid grid-cols-5 gap-4 h-full overflow-hidden">
-         <StatusColumn title="KESİM SIRA" color="bg-slate-800" accent="border-slate-600" items={filterAndSortByStatus(SlaughterStatus.Pending)} />
-         <StatusColumn title="KESİLDİ" color="bg-red-900/20" accent="border-red-600" titleColor="text-red-500" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
-         <StatusColumn title="PARÇALAMA" color="bg-orange-900/20" accent="border-orange-500" titleColor="text-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
-         <StatusColumn title="PAY EDİLİYOR" color="bg-yellow-900/20" accent="border-yellow-500" titleColor="text-yellow-500" items={filterAndSortByStatus(SlaughterStatus.Sharing)} />
-         <StatusColumn title="TESLİM" color="bg-green-900/20" accent="border-green-500" titleColor="text-green-500" items={filterAndSortByStatus(SlaughterStatus.Delivered)} />
+      {/* Main Board - Pillars Layout */}
+      <div className="flex-1 p-6 grid grid-cols-5 gap-6 h-full overflow-hidden bg-gradient-to-b from-slate-950 to-black">
+         <StatusColumn title="KESİM SIRA" color="bg-slate-900" borderColor="border-slate-700" titleColor="text-slate-300" items={filterAndSortByStatus(SlaughterStatus.Pending)} />
+         <StatusColumn title="KESİLDİ" color="bg-red-950/30" borderColor="border-red-600" titleColor="text-red-500" glow="shadow-[0_0_30px_rgba(220,38,38,0.2)]" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
+         <StatusColumn title="PARÇALAMA" color="bg-orange-950/30" borderColor="border-orange-600" titleColor="text-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
+         <StatusColumn title="PAYLAMA" color="bg-yellow-950/30" borderColor="border-yellow-600" titleColor="text-yellow-500" items={filterAndSortByStatus(SlaughterStatus.Sharing)} />
+         <StatusColumn title="TESLİM" color="bg-emerald-950/30" borderColor="border-emerald-600" titleColor="text-emerald-500" items={filterAndSortByStatus(SlaughterStatus.Delivered)} />
       </div>
 
       {/* Scrolling Marquee Announcement */}
       {showAnnouncement && (
-          <div className="absolute bottom-12 left-0 right-0 h-28 bg-blue-900/95 backdrop-blur-xl z-40 border-y-4 border-yellow-400 flex items-center shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
-             <div className="bg-yellow-400 text-black font-black px-10 h-full flex items-center z-20 shadow-xl text-4xl uppercase tracking-widest shrink-0 skew-x-[-10deg] ml-[-20px] pl-[40px]">
-                 <span className="skew-x-[10deg]">DUYURU</span>
+          <div className="absolute bottom-16 left-0 right-0 h-24 bg-yellow-400 z-40 border-y-8 border-black flex items-center shadow-[0_0_50px_rgba(250,204,21,0.5)] overflow-hidden">
+             <div className="bg-black text-yellow-400 font-black px-8 h-full flex items-center z-20 text-4xl uppercase tracking-widest shrink-0 -skew-x-12 -ml-6">
+                 <span className="skew-x-12 ml-4">DUYURU</span>
              </div>
              <div className="whitespace-nowrap w-full overflow-hidden flex items-center relative">
-                 <div className="animate-marquee inline-block text-5xl font-bold text-white px-4 leading-[6rem] drop-shadow-md">
+                 <div className="animate-marquee inline-block text-5xl font-black text-black px-4 uppercase tracking-wide">
                      {announcement}
                  </div>
-                 <div className="animate-marquee inline-block text-5xl font-bold text-white px-4 leading-[6rem] drop-shadow-md" aria-hidden="true">
+                 <div className="animate-marquee inline-block text-5xl font-black text-black px-4 uppercase tracking-wide" aria-hidden="true">
                      {announcement}
                  </div>
              </div>
@@ -273,46 +285,44 @@ const LiveTVPage = () => {
 
       {/* ALERT POPUP */}
       {activeAlert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-lg animate-in fade-in zoom-in duration-300 p-8">
-              <div className={`relative bg-white text-black rounded-[3rem] shadow-2xl max-w-7xl w-full text-center overflow-hidden`}>
-                  
-                  {/* Header Strip */}
-                  <div className={`${activeAlert.color} p-6 flex items-center justify-center gap-4`}>
-                      <span className="text-white text-6xl font-black uppercase tracking-widest drop-shadow-lg">{activeAlert.title}</span>
-                  </div>
-
-                  <div className="p-12">
-                       {/* Tag Number */}
-                      <div className="mb-12">
-                          <span className="block text-2xl font-bold text-gray-400 uppercase tracking-[0.5em] mb-4">Kurban Küpe No</span>
-                          <div className={`inline-block text-[180px] font-black leading-none px-12 py-4 rounded-3xl bg-gray-50 border-4 border-dashed border-gray-300 text-gray-900`}>
-                              #{activeAlert.animal.tag_number}
-                          </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl animate-in fade-in zoom-in duration-300 p-8">
+              <div className="relative w-full max-w-7xl">
+                   {/* Alert Box */}
+                  <div className={`relative bg-white text-black rounded-[3rem] shadow-[0_0_100px_rgba(255,255,255,0.3)] overflow-hidden border-8 border-white`}>
+                      
+                      {/* Header Strip */}
+                      <div className={`${activeAlert.color} p-8 flex items-center justify-center relative overflow-hidden`}>
+                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                          <span className="text-white text-7xl font-black uppercase tracking-widest drop-shadow-lg relative z-10 animate-pulse">{activeAlert.title}</span>
                       </div>
 
-                      {/* Shareholders */}
-                      <div className="bg-slate-50 p-10 rounded-3xl border-2 border-slate-100 shadow-inner">
-                          <h3 className="text-3xl font-bold text-slate-500 mb-8 flex items-center justify-center gap-4">
-                              <span className="h-px w-20 bg-slate-300"></span>
-                              HİSSEDARLAR
-                              <span className="h-px w-20 bg-slate-300"></span>
-                          </h3>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                              {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
-                                  activeAlert.animal.shares.map((s, i) => (
-                                    <div key={i} className="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xl">
-                                            {s.name.charAt(0)}
+                      <div className="p-16 flex flex-col items-center">
+                           {/* Tag Number */}
+                          <div className="mb-16 transform scale-125">
+                              <span className="block text-xl font-bold text-gray-400 uppercase tracking-[0.8em] text-center mb-4">KURBAN KÜPE NO</span>
+                              <div className="text-[200px] font-black leading-none tracking-tighter text-slate-900 drop-shadow-xl">
+                                  #{activeAlert.animal.tag_number}
+                              </div>
+                          </div>
+
+                          {/* Shareholders */}
+                          <div className="w-full">
+                              <h3 className="text-2xl font-bold text-slate-400 mb-8 flex items-center justify-center gap-6 uppercase tracking-widest">
+                                  <span className="h-px w-24 bg-slate-300"></span>
+                                  Hissedarlar
+                                  <span className="h-px w-24 bg-slate-300"></span>
+                              </h3>
+                              <div className="flex flex-wrap justify-center gap-4">
+                                  {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
+                                      activeAlert.animal.shares.map((s, i) => (
+                                        <div key={i} className="bg-slate-100 px-8 py-4 rounded-2xl shadow-sm border border-slate-200">
+                                            <div className="text-3xl font-bold text-slate-800">{s.name}</div>
                                         </div>
-                                        <div className="text-left overflow-hidden">
-                                            <div className="text-2xl font-bold text-slate-800 truncate">{s.name}</div>
-                                            {s.status === 'ODENDI' && <div className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block mt-1">ÖDEME TAMAM</div>}
-                                        </div>
-                                    </div>
-                                  ))
-                              ) : (
-                                  <div className="col-span-3 text-center text-gray-400 text-2xl italic py-4">Hissedar bilgisi henüz girilmedi.</div>
-                              )}
+                                      ))
+                                  ) : (
+                                      <div className="text-center text-gray-400 text-2xl italic py-4">...</div>
+                                  )}
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -322,33 +332,35 @@ const LiveTVPage = () => {
 
       <style>{`
         @keyframes marquee {
-            0% { transform: translateX(100%); }
+            0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
         .animate-marquee {
-            animation: marquee 20s linear infinite;
+            animation: marquee 15s linear infinite;
             min-width: 100%;
+            padding-right: 50vw;
         }
       `}</style>
     </div>
   );
 };
 
-const StatusColumn = ({ title, color, accent, titleColor, items, animate }: any) => (
-    <div className={`rounded-3xl flex flex-col ${color} border-t-8 ${accent} h-full shadow-xl overflow-hidden backdrop-blur-sm`}>
-        <div className={`p-5 text-center font-black text-2xl tracking-wide uppercase border-b border-white/5 ${titleColor || 'text-slate-300'}`}>
-            {title} <span className="text-lg opacity-60 ml-1 text-white/40">({items.length})</span>
+const StatusColumn = ({ title, color, borderColor, titleColor, items, animate, glow }: any) => (
+    <div className={`flex flex-col ${color} rounded-2xl border-t-8 ${borderColor} h-full shadow-2xl overflow-hidden relative ${glow || ''}`}>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none"></div>
+        <div className={`p-6 text-center font-black text-2xl tracking-widest uppercase border-b border-white/10 ${titleColor}`}>
+            {title}
         </div>
-        <div className="p-3 space-y-3 overflow-y-auto flex-1 scrollbar-hide flex flex-col justify-start">
+        <div className="flex-1 p-4 space-y-4 overflow-y-auto scrollbar-hide flex flex-col justify-start">
             {items.map((item: Animal) => (
-                <div key={item.id} className={`p-4 bg-white rounded-2xl shadow-lg transform transition-all duration-500 flex flex-col items-center justify-center min-h-[120px] relative overflow-hidden group ${animate ? 'animate-pulse ring-4 ring-red-500/30' : ''}`}>
-                    <div className={`absolute top-0 right-0 p-2 opacity-50`}>
-                        <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-white rounded-full -mr-8 -mt-8"></div>
-                    </div>
-                    <div className="text-6xl font-black text-slate-800 tracking-tighter z-10">#{item.tag_number}</div>
-                    {item.type && <div className="mt-2 px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold uppercase tracking-wider text-slate-500 z-10">{item.type}</div>}
+                <div key={item.id} className={`p-6 bg-white rounded-xl shadow-lg transform transition-all duration-500 flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden group ${animate ? 'animate-pulse ring-4 ring-white/50' : ''}`}>
+                    <div className="text-7xl font-black text-slate-900 tracking-tighter z-10">#{item.tag_number}</div>
+                    {item.type && <div className="mt-2 px-3 py-1 bg-slate-200 rounded text-xs font-bold uppercase tracking-wider text-slate-600 z-10">{item.type}</div>}
                 </div>
             ))}
+        </div>
+        <div className="p-2 text-center text-xs font-mono text-white/20 bg-black/20">
+            TOPLAM: {items.length}
         </div>
     </div>
 );
