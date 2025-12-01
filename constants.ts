@@ -50,7 +50,7 @@ create table if not exists public.animals (
   image_url text,
   year int references public.years(year) on delete cascade,
   max_shares int default 7,
-  slaughter_status text default 'SIRADA',
+  slaughter_status text default 'AHIR',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );

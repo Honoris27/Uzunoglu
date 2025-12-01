@@ -97,7 +97,7 @@ const AnimalsPage: React.FC<Props> = ({ animals, selectedYear, refresh }) => {
         notes: formData.notes,
         image_url: finalImage,
         year: selectedYear,
-        slaughter_status: SlaughterStatus.Pending
+        slaughter_status: SlaughterStatus.Barn // Default to Barn
       };
 
       if (editingAnimal) {

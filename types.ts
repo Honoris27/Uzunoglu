@@ -6,7 +6,8 @@ export enum ShareStatus {
 }
 
 export enum SlaughterStatus {
-  Pending = 'SIRADA',       // Kesim Yolu
+  Barn = 'AHIR',            // Ahırda (Bekliyor)
+  Pending = 'SIRADA',       // Kesim Yolu (Sırada)
   Cut = 'KESILDI',          // Kesildi
   Chopping = 'PARCALANIYOR',// Parçalanıyor
   Sharing = 'PAY_EDILIYOR', // Pay Ediliyor
@@ -65,8 +66,8 @@ export interface AppSettings {
   active_announcement?: string; 
   announcement_duration_sec?: number;
   announcement_timestamp?: string;
-  notification_sound?: 'ding' | 'gong' | 'bell' | 'siren' | 'horn' | 'whistle' | 'custom'; // Updated to include all used sounds
-  custom_sound_url?: string; // New field for Base64 audio
+  notification_sound?: 'ding' | 'gong' | 'bell' | 'siren' | 'horn' | 'whistle' | 'custom';
+  custom_sound_url?: string; 
   site_title?: string;
   logo_url?: string;
 }
