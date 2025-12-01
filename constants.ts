@@ -6,13 +6,16 @@ export const SQL_SETUP_SCRIPT = `
 -- Drop existing tables to reset schema (Optional, use carefully)
 -- drop table if exists public.shares;
 -- drop table if exists public.animals;
+-- drop table if exists public.app_settings;
 
--- Create Settings Table
+-- Create Settings Table with JSONB support for dynamic arrays
 create table if not exists public.app_settings (
   id int primary key generated always as identity,
   admin_password text default 'admin123',
   default_image_url text default 'https://images.unsplash.com/photo-1541600383005-565c949cf777?q=80&w=1000&auto=format&fit=crop',
-  theme text default 'light'
+  theme text default 'light',
+  animal_types jsonb default '["Büyükbaş", "Küçükbaş"]'::jsonb,
+  bank_accounts jsonb default '[]'::jsonb
 );
 
 -- Insert default settings if not exists
@@ -32,8 +35,8 @@ insert into public.years (year) values (extract(year from now())) on conflict do
 create table if not exists public.animals (
   id uuid default gen_random_uuid() primary key,
   tag_number text not null,
-  type text not null check (type in ('BUYUKBAS', 'KUCUKBAS')),
-  weight_kg int not null default 0,
+  type text not null,
+  weight_kg int default 0,
   total_price int not null default 0,
   notes text,
   image_url text,

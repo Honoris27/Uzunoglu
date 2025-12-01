@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Animal, AnimalType, Shareholder, ShareStatus, DashboardStats, AppSettings, SlaughterStatus } from './types';
+import { Animal, Shareholder, ShareStatus, DashboardStats, AppSettings, SlaughterStatus } from './types';
 import { animalService, shareService, configService } from './services/supabaseService';
 import { SQL_SETUP_SCRIPT } from './constants';
 import { PlusIcon, UsersIcon, WalletIcon, TagIcon, TrashIcon, CheckCircleIcon, DatabaseIcon } from './components/Icons';

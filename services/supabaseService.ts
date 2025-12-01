@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
-import { Animal, AnimalType, Shareholder, ShareStatus, AppSettings } from '../types';
+import { Animal, Shareholder, ShareStatus, AppSettings } from '../types';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -15,7 +15,6 @@ export const animalService = {
         .order('created_at', { ascending: false });
       
       if (error) {
-        // Return empty array if table doesn't exist yet
         if (error.code === '42P01') return [];
         throw error;
       }
@@ -63,7 +62,6 @@ export const animalService = {
     if (error) throw error;
   },
 
-  // Reset shares for an animal
   async resetShares(animalId: string) {
      const { error } = await supabase.from('shares').delete().eq('animal_id', animalId);
      if (error) throw error;
@@ -105,24 +103,29 @@ export const configService = {
     try {
       const { data, error } = await supabase.from('app_settings').select('*').limit(1).single();
       
+      const defaults: AppSettings = { 
+          id: 0,
+          admin_password: 'admin123', 
+          theme: 'light',
+          animal_types: ['Büyükbaş'],
+          bank_accounts: []
+      };
+
       if (error) {
-        // 42P01: Table doesn't exist yet
-        // PGRST116: Table exists but is empty
         if (error.code === '42P01' || error.code === 'PGRST116') {
             console.warn("Settings table missing or empty. Using defaults.");
-            return { admin_password: 'admin123', theme: 'light' } as AppSettings;
+            return defaults;
         }
         throw error;
       }
-      return data as AppSettings;
+      return { ...defaults, ...data };
     } catch (error) {
       console.warn("Failed to fetch settings (likely first run):", error);
-      return { admin_password: 'admin123', theme: 'light' } as AppSettings;
+      return { id: 0, admin_password: 'admin123', theme: 'light', animal_types: ['Büyükbaş'] } as AppSettings;
     }
   },
   
   async updateSettings(updates: Partial<AppSettings>) {
-    // Basic implementation: update first row found
     const { data: existing } = await supabase.from('app_settings').select('id').limit(1).single();
     if (existing) {
         const { data, error } = await supabase.from('app_settings').update(updates).eq('id', existing.id).select().single();

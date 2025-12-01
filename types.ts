@@ -1,9 +1,4 @@
 
-export enum AnimalType {
-  Big = 'BUYUKBAS',
-  Small = 'KUCUKBAS'
-}
-
 export enum ShareStatus {
   Unpaid = 'ODENMEDI',
   Paid = 'ODENDI',
@@ -32,23 +27,31 @@ export interface Shareholder {
 export interface Animal {
   id: string;
   tag_number: string;
-  type: AnimalType;
+  type: string; // Changed from Enum to string for dynamic types
   weight_kg: number;
   total_price: number;
   notes?: string;
-  image_url?: string;
+  image_url?: string; // Can be URL or Base64
   year: number;
-  max_shares: number; // Set on first sale or creation
+  max_shares: number; 
   slaughter_status: SlaughterStatus;
   created_at?: string;
   shares?: Shareholder[]; 
 }
 
+export interface BankAccount {
+  iban: string;
+  name: string;
+  bank_name: string;
+}
+
 export interface AppSettings {
   id: number;
-  admin_password?: string; // Stored simply for this demo
+  admin_password?: string;
   default_image_url?: string;
   theme: 'light' | 'dark';
+  animal_types?: string[]; // Dynamic types
+  bank_accounts?: BankAccount[]; // For receipts
 }
 
 export interface YearRecord {
