@@ -14,42 +14,35 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
+  
+  // Search and Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // all, debt, paid
 
   useEffect(() => {
     configService.getSettings().then(setSettings);
   }, []);
 
-  // Group Customers Logic:
-  // If a customer has multiple shares (same Name + Animal), they appear as 1 row with aggregated totals.
   const customers = useMemo(() => {
     const groupedData = new Map<string, any>();
 
     animals.forEach(animal => {
       if (animal.shares) {
         animal.shares.forEach(share => {
-          // Create a unique key for grouping. We use Name + AnimalID. 
-          // Ideally use Phone too, but sometimes users don't enter phone perfectly same.
-          // Using ID based grouping:
           const key = `${animal.id}_${share.name}`;
           
           if (groupedData.has(key)) {
-              // Update existing entry
               const existing = groupedData.get(key);
               existing.shareCount += 1;
               existing.amount_agreed += share.amount_agreed;
               existing.amount_paid += share.amount_paid;
               existing.remaining += (share.amount_agreed - share.amount_paid);
               existing.ids.push(share.id);
-              
-              // Determine status: if any share is unpaid/partial, the group is partially paid unless all are paid
-              if (share.status !== ShareStatus.Paid) {
-                  existing.status = ShareStatus.Partial;
-              }
+              if (share.status !== ShareStatus.Paid) existing.status = ShareStatus.Partial;
           } else {
-              // Create new entry
               groupedData.set(key, {
                   ...share,
-                  ids: [share.id], // Keep track of all share IDs for this group
+                  ids: [share.id],
                   shareCount: 1,
                   animalTag: animal.tag_number,
                   animalType: animal.type,
@@ -61,19 +54,29 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
       }
     });
     
-    // Convert map to array and sort
-    return Array.from(groupedData.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [animals]);
+    let result = Array.from(groupedData.values());
+
+    // Filter
+    if (searchTerm) {
+        const lower = searchTerm.toLowerCase();
+        result = result.filter(c => c.name.toLowerCase().includes(lower) || c.phone.includes(searchTerm) || c.animalTag.toLowerCase().includes(lower));
+    }
+
+    if (filterStatus === 'debt') {
+        result = result.filter(c => c.remaining > 0);
+    } else if (filterStatus === 'paid') {
+        result = result.filter(c => c.remaining <= 0);
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [animals, searchTerm, filterStatus]);
 
   const openDetail = async (customerGroup: any) => {
       setSelectedCustomer(customerGroup);
-      
-      // Fetch transactions for ALL shares in this group
       try {
           const allTransactions = await Promise.all(
               customerGroup.ids.map((id: string) => paymentService.getByShareId(id))
           );
-          // Flatten array and sort by date
           const flatTransactions = allTransactions.flat().sort((a, b) => 
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
@@ -92,28 +95,9 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
           alert("İade tutarı, ödenen tutardan fazla olamaz!");
           return;
       }
-
-      // Refund Logic for grouped shares:
-      // We apply the refund to the first share in the group that has payment, or split it?
-      // Simpler: Apply to the first share ID for record keeping.
-      // Ideally we should ask WHICH share, but since they are grouped, we assume it's against the total debt.
       
       try {
-          // We need to fetch the specific share data again to be safe, but we'll use the first one from IDs
           const targetShareId = selectedCustomer.ids[0]; 
-          // We need current data for that share to update it correctly
-          // For simplicity in this grouped view, we will just log the transaction against the first ID.
-          // IMPORTANT: Status updates might be tricky if we don't know which specific share it belongs to.
-          // For now, we just log the transaction. The DB trigger or logic handles balance.
-          
-          // Re-fetching the specific share to update its paid amount
-          // Since we are in frontend-only logic mostly for calculation, let's just update the DB
-          
-          // Update: Just decrease amount_paid from the "Customer Group" total is visual. 
-          // We must update a real row in DB.
-          // We will update the FIRST share in the list.
-          
-          // NOTE: This is a limitation of grouping. We will pick the first share.
           const currentShareData = animals.flatMap(a => a.shares).find(s => s?.id === targetShareId);
           if (!currentShareData) return;
 
@@ -140,7 +124,6 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
       }
   };
 
-  // Calculate opening balance based on Total Paid - Sum of logged transactions
   const loggedTotal = customerTransactions
         .filter(t => t.type === 'PAYMENT')
         .reduce((sum, t) => sum + t.amount, 0) 
@@ -152,75 +135,112 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
   const openingBalance = selectedCustomer ? selectedCustomer.amount_paid - loggedTotal : 0;
 
   return (
-    <div>
-       <h2 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-2">
-           <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-           </svg>
-           Müşteri Listesi
-       </h2>
+    <div className="max-w-7xl mx-auto">
+       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h2 className="text-3xl font-bold dark:text-white flex items-center gap-3">
+                <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                    <svg className="w-8 h-8 text-purple-600 dark:text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                </div>
+                Müşteri Listesi
+            </h2>
+            
+            <div className="flex gap-2 w-full md:w-auto">
+                <input 
+                    type="text" 
+                    placeholder="Ad, Telefon veya Küpe Ara..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 w-full md:w-64 dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <select 
+                    value={filterStatus} 
+                    onChange={e => setFilterStatus(e.target.value)}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 dark:bg-gray-800 dark:text-white outline-none"
+                >
+                    <option value="all">Tümü</option>
+                    <option value="debt">Borçlu</option>
+                    <option value="paid">Ödenen</option>
+                </select>
+            </div>
+       </div>
        
-       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
          <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
-               <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs uppercase tracking-wider">
+               <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider">
                  <tr>
-                   <th className="p-4 font-semibold">Müşteri</th>
-                   <th className="p-4 font-semibold">İletişim</th>
-                   <th className="p-4 font-semibold">Hayvan</th>
-                   <th className="p-4 font-semibold text-center">Hisse Adedi</th>
-                   <th className="p-4 font-semibold text-right">Kalan Borç</th>
-                   <th className="p-4 font-semibold text-center">Durum</th>
-                   <th className="p-4 font-semibold"></th>
+                   <th className="p-5">Müşteri</th>
+                   <th className="p-5">Hayvan Bilgisi</th>
+                   <th className="p-5 text-center">Hisse</th>
+                   <th className="p-5 text-right">Toplam Tutar</th>
+                   <th className="p-5 text-right">Kalan Borç</th>
+                   <th className="p-5 text-center">Durum</th>
+                   <th className="p-5 text-right">İşlemler</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                  {customers.map((c, i) => (
-                   <tr key={i} className="hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors">
-                     <td className="p-4 font-bold text-gray-900 dark:text-white">{c.name}</td>
-                     <td className="p-4 text-gray-500 dark:text-gray-400 font-mono text-sm">{c.phone}</td>
-                     <td className="p-4 dark:text-gray-300">
+                   <tr key={i} className="hover:bg-purple-50 dark:hover:bg-gray-700/50 transition-colors group">
+                     <td className="p-5">
+                         <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                 {c.name.charAt(0).toUpperCase()}
+                             </div>
+                             <div>
+                                 <div className="font-bold text-gray-900 dark:text-white">{c.name}</div>
+                                 <div className="text-gray-500 dark:text-gray-400 text-xs font-mono">{c.phone}</div>
+                             </div>
+                         </div>
+                     </td>
+                     <td className="p-5">
                         <div className="flex flex-col">
-                            <span className="font-bold">#{c.animalTag}</span>
-                            <span className="text-xs text-gray-400">{c.animalType}</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">#{c.animalTag}</span>
+                            <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded w-fit mt-1">{c.animalType}</span>
                         </div>
                      </td>
-                     <td className="p-4 text-center">
-                         {c.shareCount > 1 ? (
-                             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">
-                                 {c.shareCount} ADET
-                             </span>
-                         ) : (
-                             <span className="text-gray-400 text-sm">1</span>
-                         )}
+                     <td className="p-5 text-center">
+                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${c.shareCount > 1 ? 'bg-blue-100 text-blue-800' : 'text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-300'}`}>
+                             {c.shareCount} Adet
+                         </span>
                      </td>
-                     <td className="p-4 text-right">
+                     <td className="p-5 text-right font-medium dark:text-gray-300">
+                         {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(c.amount_agreed)}
+                     </td>
+                     <td className="p-5 text-right">
                         {c.remaining > 0 ? (
-                            <span className="font-bold text-red-600">-{c.remaining} TL</span>
+                            <span className="font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-lg">-{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(c.remaining)}</span>
                         ) : (
-                            <span className="font-bold text-green-600">0 TL</span>
+                            <span className="font-bold text-emerald-600 flex items-center justify-end gap-1">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                0 TL
+                            </span>
                         )}
                      </td>
-                     <td className="p-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                           c.remaining <= 0 ? 'bg-green-100 text-green-800' : 
-                           c.amount_paid > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                     <td className="p-5 text-center">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                           c.remaining <= 0 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 
+                           c.amount_paid > 0 ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-red-100 text-red-800 border-red-200'
                         }`}>
                           {c.remaining <= 0 ? 'ÖDENDİ' : c.amount_paid > 0 ? 'KISMI' : 'ÖDENMEDİ'}
                         </span>
                      </td>
-                     <td className="p-4 text-right">
+                     <td className="p-5 text-right">
                          <button 
                             onClick={() => openDetail(c)}
-                            className="text-primary-600 hover:text-primary-800 hover:bg-primary-50 px-3 py-1 rounded-lg transition-colors font-medium text-sm"
+                            className="text-purple-600 hover:text-white hover:bg-purple-600 px-4 py-2 rounded-lg transition-all font-medium text-sm border border-purple-200 hover:border-purple-600"
                          >
-                             Ekstre Görüntüle
+                             Ekstre
                          </button>
                      </td>
                    </tr>
                  ))}
                </tbody>
              </table>
+             {customers.length === 0 && (
+                 <div className="p-10 text-center text-gray-500 dark:text-gray-400">
+                     Aradığınız kriterlere uygun müşteri bulunamadı.
+                 </div>
+             )}
          </div>
        </div>
 
@@ -228,29 +248,30 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
        <Modal isOpen={!!selectedCustomer && !showRefundModal} onClose={() => setSelectedCustomer(null)} title="Hesap Ekstresi">
            {selectedCustomer && (
                <div className="bg-white text-gray-900" id="statement-area">
-                   <div className="border-b-2 border-gray-800 pb-6 mb-6 flex justify-between items-start">
+                   <div className="border-b-2 border-gray-900 pb-6 mb-6 flex justify-between items-start">
                        <div>
-                           <h1 className="text-3xl font-bold uppercase tracking-wide text-primary-700">Hesap Ekstresi</h1>
-                           <p className="text-sm text-gray-500 mt-1">Kurban Satış Organizasyonu</p>
+                           <h1 className="text-3xl font-black uppercase tracking-widest text-gray-900">HESAP EKSTRESİ</h1>
+                           <p className="text-sm font-bold text-gray-500 mt-1 tracking-widest uppercase">{settings?.site_title || 'KURBAN SATIŞ ORGANİZASYONU'}</p>
                        </div>
                        <div className="text-right">
-                           <div className="text-sm text-gray-500">Tarih</div>
-                           <div className="font-bold">{new Date().toLocaleDateString('tr-TR')}</div>
+                           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tarih</div>
+                           <div className="font-bold text-lg">{new Date().toLocaleDateString('tr-TR')}</div>
                        </div>
                    </div>
 
-                   <div className="bg-gray-50 p-6 rounded-lg mb-8 border border-gray-100 flex justify-between items-center">
+                   <div className="bg-gray-50 p-6 rounded-xl mb-8 border border-gray-200 flex justify-between items-center">
                        <div>
-                           <h4 className="text-xs font-bold uppercase text-gray-400 mb-2">Sayın Müşteri</h4>
-                           <h2 className="text-2xl font-bold">{selectedCustomer.name}</h2>
-                           <p className="text-gray-600 font-mono">{selectedCustomer.phone}</p>
+                           <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Müşteri</h4>
+                           <h2 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h2>
+                           <p className="text-gray-600 font-mono mt-1">{selectedCustomer.phone}</p>
                        </div>
                        <div className="no-print">
                            <button 
                              onClick={() => setShowRefundModal(true)}
-                             className="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-xs font-bold border border-red-200"
+                             className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold border border-red-200 transition-colors flex items-center gap-2"
                            >
-                               İade / İptal Yap
+                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                               İade / İptal
                            </button>
                        </div>
                    </div>
@@ -259,69 +280,72 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                        <table className="w-full border-collapse">
                            <thead>
                                <tr className="border-b border-gray-300">
-                                   <th className="text-left py-2 font-bold text-gray-600">Tarih / Açıklama</th>
-                                   <th className="text-right py-2 font-bold text-gray-600">Borç</th>
-                                   <th className="text-right py-2 font-bold text-gray-600">Ödenen</th>
-                                   <th className="text-right py-2 font-bold text-gray-600">Bakiye</th>
+                                   <th className="text-left py-3 font-bold text-gray-600 uppercase text-xs tracking-wider">Tarih / Açıklama</th>
+                                   <th className="text-right py-3 font-bold text-gray-600 uppercase text-xs tracking-wider">Borç</th>
+                                   <th className="text-right py-3 font-bold text-gray-600 uppercase text-xs tracking-wider">Ödenen</th>
+                                   <th className="text-right py-3 font-bold text-gray-600 uppercase text-xs tracking-wider">Bakiye</th>
                                </tr>
                            </thead>
                            <tbody className="text-sm">
                                {/* Initial Agreement */}
                                <tr className="border-b border-gray-100">
-                                   <td className="py-3">
-                                       <span className="block font-bold text-gray-800">Kurban Hissesi Satışı ({selectedCustomer.shareCount} Adet)</span>
-                                       <span className="text-xs text-gray-500">Küpe No: #{selectedCustomer.animalTag} ({selectedCustomer.animalType})</span>
+                                   <td className="py-4">
+                                       <span className="block font-bold text-gray-800 text-base">Hisse Satışı ({selectedCustomer.shareCount} Adet)</span>
+                                       <span className="text-xs text-gray-500 uppercase tracking-wide">Küpe: #{selectedCustomer.animalTag} • {selectedCustomer.animalType}</span>
                                    </td>
-                                   <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>
-                                   <td className="text-right py-3">0 TL</td>
-                                   <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>
+                                   <td className="text-right py-4 text-gray-800">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(selectedCustomer.amount_agreed)}</td>
+                                   <td className="text-right py-4 text-gray-400">-</td>
+                                   <td className="text-right py-4 font-bold text-gray-800">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(selectedCustomer.amount_agreed)}</td>
                                </tr>
                                
-                               {/* Opening Balance (Old Payments) */}
+                               {/* Opening Balance */}
                                {openingBalance > 0 && (
-                                   <tr className="border-b border-gray-100 bg-gray-50/30">
-                                       <td className="py-3 pl-2 italic">Devreden Ödeme Bakiyesi</td>
+                                   <tr className="border-b border-gray-100 bg-gray-50/50">
+                                       <td className="py-3 pl-2 italic text-gray-500">Devreden Ödeme Bakiyesi</td>
                                        <td className="text-right py-3"></td>
-                                       <td className="text-right py-3 text-green-700">{openingBalance} TL</td>
+                                       <td className="text-right py-3 text-emerald-600 font-bold">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(openingBalance)}</td>
                                        <td className="text-right py-3"></td>
                                    </tr>
                                )}
 
                                {/* Transaction Log */}
                                {customerTransactions.map((tx) => (
-                                   <tr key={tx.id} className={`border-b border-gray-100 ${tx.type === 'REFUND' ? 'bg-red-50' : 'bg-green-50/50'}`}>
+                                   <tr key={tx.id} className={`border-b border-gray-100 ${tx.type === 'REFUND' ? 'bg-red-50' : 'bg-emerald-50/30'}`}>
                                        <td className="py-3 pl-2">
-                                           <div className="font-bold">{new Date(tx.created_at).toLocaleDateString('tr-TR')}</div>
+                                           <div className="font-bold text-gray-800">{new Date(tx.created_at).toLocaleDateString('tr-TR')}</div>
                                            <div className="text-xs text-gray-500">{tx.description || (tx.type === 'REFUND' ? 'İade/İptal' : 'Ödeme')}</div>
                                        </td>
                                        <td className="text-right py-3"></td>
-                                       <td className={`text-right py-3 font-bold ${tx.type === 'REFUND' ? 'text-red-600' : 'text-green-700'}`}>
-                                           {tx.type === 'REFUND' ? '-' : ''}{tx.amount} TL
+                                       <td className={`text-right py-3 font-bold ${tx.type === 'REFUND' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                           {tx.type === 'REFUND' ? '-' : ''}{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(tx.amount)}
                                        </td>
                                        <td className="text-right py-3"></td>
                                    </tr>
                                ))}
                            </tbody>
-                           <tfoot className="border-t-2 border-gray-800">
+                           <tfoot className="border-t-2 border-gray-900 bg-gray-50">
                                <tr>
-                                   <td className="py-4 font-bold text-lg">GENEL TOPLAM</td>
-                                   <td className="text-right py-4 font-bold">{selectedCustomer.amount_agreed} TL</td>
-                                   <td className="text-right py-4 font-bold text-green-700">{selectedCustomer.amount_paid} TL</td>
-                                   <td className="text-right py-4 font-bold text-xl text-red-600">{selectedCustomer.remaining} TL</td>
+                                   <td className="py-4 pl-4 font-black text-lg text-gray-900 uppercase">GENEL TOPLAM</td>
+                                   <td className="text-right py-4 font-bold text-gray-900">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(selectedCustomer.amount_agreed)}</td>
+                                   <td className="text-right py-4 font-bold text-emerald-600">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(selectedCustomer.amount_paid)}</td>
+                                   <td className="text-right py-4 font-black text-xl text-red-600 pr-4">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(selectedCustomer.remaining)}</td>
                                </tr>
                            </tfoot>
                        </table>
                    </div>
 
                     {settings?.bank_accounts && settings.bank_accounts.length > 0 && (
-                        <div className="mt-8 p-4 border border-dashed border-gray-300 rounded bg-gray-50">
-                            <h4 className="font-bold mb-3 text-sm uppercase text-gray-500 border-b pb-1">Banka Hesap Bilgilerimiz</h4>
+                        <div className="mt-8 p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                            <h4 className="font-bold mb-4 text-xs uppercase text-gray-500 tracking-wider">Banka Hesap Bilgilerimiz</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                                 {settings.bank_accounts.map((acc, i) => (
-                                    <div key={i} className="flex flex-col">
-                                        <span className="font-bold text-gray-800">{acc.bank_name}</span>
-                                        <span className="text-gray-600">{acc.name}</span>
-                                        <span className="font-mono bg-white p-1 border rounded mt-1 select-all">{acc.iban}</span>
+                                    <div key={i} className="flex flex-col p-2 bg-white rounded border border-gray-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-bold text-gray-900 uppercase">{acc.bank_name}</span>
+                                            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                            <span className="text-gray-500">{acc.name}</span>
+                                        </div>
+                                        <span className="font-mono text-gray-700 text-sm select-all">{acc.iban}</span>
                                     </div>
                                 ))}
                             </div>
@@ -337,7 +361,8 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                                 .no-print { display: none; }
                             }
                         `}</style>
-                       <button onClick={() => window.print()} className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-black font-bold flex items-center gap-2 shadow-lg">
+                       <button onClick={() => window.print()} className="bg-gray-900 text-white px-8 py-3 rounded-xl hover:bg-black font-bold flex items-center gap-3 shadow-lg transition-transform hover:-translate-y-1">
+                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                            Yazdır (A4)
                        </button>
                    </div>
@@ -347,21 +372,28 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
 
        {/* Refund Modal */}
        <Modal isOpen={showRefundModal} onClose={() => setShowRefundModal(false)} title="Ödeme İade / İptal">
-           <div className="space-y-4">
-               <div className="bg-red-50 p-4 rounded text-red-800 text-sm">
-                   Bu işlem müşterinin "Ödenen" tutarını azaltır ve ekstreye "İade" olarak yansır.
+           <div className="space-y-6">
+               <div className="bg-red-50 p-5 rounded-xl border border-red-100 flex gap-4 items-start">
+                   <div className="bg-red-100 p-2 rounded-full text-red-600">
+                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                   </div>
+                   <div className="text-sm text-red-800">
+                       <h4 className="font-bold mb-1">Dikkat Ediniz</h4>
+                       <p>Bu işlem müşterinin "Ödenen" tutarını azaltır ve ekstreye "İade" satırı olarak yansır. Bu işlem geri alınamaz.</p>
+                   </div>
                </div>
                <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">İptal Edilecek Tutar</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">İptal Edilecek Tutar (TL)</label>
                    <input 
                     type="number" 
                     value={refundAmount} 
                     onChange={e => setRefundAmount(e.target.value)}
-                    className="w-full border p-2 rounded"
+                    className="w-full border p-4 rounded-xl text-lg font-bold outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder="0.00"
                     max={selectedCustomer?.amount_paid}
                    />
                </div>
-               <button onClick={handleRefund} className="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700">
+               <button onClick={handleRefund} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-500/20">
                    İşlemi Onayla
                </button>
            </div>
