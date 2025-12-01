@@ -20,7 +20,7 @@ function App() {
   // Global State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
-  const [settings, setSettings] = useState<AppSettings>({ theme: 'light', id: 0, admin_password: '' });
+  const [settings, setSettings] = useState<AppSettings>({ theme: 'light', id: 0, admin_password: 'admin123' }); // Set default to prevent race condition logic
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -62,6 +62,7 @@ function App() {
     };
 
     if (!isTVMode) init();
+    else setLoading(false); // If TV mode, stop loading immediately (TV page fetches its own data)
   }, []);
 
   // Fetch Animals when Year changes or Auth changes
@@ -73,13 +74,11 @@ function App() {
 
   const loadAnimals = async () => {
     try {
-      setLoading(true);
+      // Don't set full app loading for year switch, maybe local loading
       const data = await animalService.getAll(selectedYear);
       setAnimals(data);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -125,6 +124,17 @@ function App() {
 
 
   // RENDER LOGIC
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <p className="text-gray-500 font-medium">Sistem Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isTVMode) {
     return <LiveTVPage />; 
