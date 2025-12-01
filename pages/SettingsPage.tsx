@@ -27,6 +27,7 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
         animal_types: form.animal_types,
         bank_accounts: form.bank_accounts,
         notification_sound: form.notification_sound,
+        custom_sound_url: form.custom_sound_url,
         site_title: form.site_title,
         logo_url: form.logo_url
       });
@@ -145,6 +146,67 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
       }
   };
 
+  const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          // Limit file size to 2MB to prevent large DB payloads
+          if (file.size > 2 * 1024 * 1024) {
+              alert("Ses dosyası 2MB'dan büyük olamaz!");
+              return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setForm(prev => ({ ...prev, custom_sound_url: reader.result as string, notification_sound: 'custom' }));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const playPreviewSound = () => {
+      if (form.notification_sound === 'custom' && form.custom_sound_url) {
+          const audio = new Audio(form.custom_sound_url);
+          audio.play().catch(e => alert("Ses çalınamadı."));
+          return;
+      }
+
+      // Default oscillators
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      
+      const type = form.notification_sound;
+      
+      if (type === 'gong') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(100, now);
+          osc.frequency.exponentialRampToValueAtTime(0.01, now + 2);
+          gain.gain.setValueAtTime(1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
+          osc.start(now);
+          osc.stop(now + 2);
+      } else if (type === 'bell') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(600, now);
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.5, now + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+          osc.start(now);
+          osc.stop(now + 1.5);
+      } else {
+          // Ding
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
+          gain.gain.setValueAtTime(0.5, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.start(now);
+          osc.stop(now + 0.5);
+      }
+  };
+
   return (
     <div className="max-w-4xl space-y-8 pb-10">
       <h2 className="text-2xl font-bold mb-6 dark:text-white">Sistem Ayarları</h2>
@@ -210,18 +272,44 @@ const SettingsPage: React.FC<Props> = ({ settings, availableYears, onRefresh }) 
                  <option value="dark">Karanlık (Dark)</option>
                </select>
              </div>
-             <div>
-               <label className="block text-sm mb-1 dark:text-gray-300">TV Bildirim Sesi</label>
-               <select 
-                  value={form.notification_sound || 'ding'}
-                  onChange={e => setForm({...form, notification_sound: e.target.value as any})}
-                  className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
-               >
-                 <option value="ding">Ding (Hafif)</option>
-                 <option value="bell">Zil (Klasik)</option>
-                 <option value="gong">Gong (Güçlü)</option>
-               </select>
+             
+             {/* Sound Settings */}
+             <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+               <label className="block text-sm mb-2 font-bold dark:text-gray-200">TV Bildirim Sesi</label>
+               <div className="flex gap-2 mb-2">
+                   <select 
+                      value={form.notification_sound || 'ding'}
+                      onChange={e => setForm({...form, notification_sound: e.target.value as any})}
+                      className="flex-1 border p-2 rounded dark:bg-gray-700 dark:text-white"
+                   >
+                     <option value="ding">Ding (Hafif)</option>
+                     <option value="bell">Zil (Klasik)</option>
+                     <option value="gong">Gong (Güçlü)</option>
+                     <option value="custom">Özel Yüklenen Ses</option>
+                   </select>
+                   <button 
+                     onClick={playPreviewSound}
+                     className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700 flex items-center justify-center"
+                     title="Sesi Çal"
+                   >
+                       🔊
+                   </button>
+               </div>
+               
+               {form.notification_sound === 'custom' && (
+                   <div>
+                       <label className="block text-xs mb-1 text-gray-500">Ses Dosyası Yükle (MP3/WAV - Max 2MB)</label>
+                       <input 
+                         type="file" 
+                         accept="audio/*"
+                         onChange={handleSoundUpload}
+                         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white text-xs"
+                       />
+                       {form.custom_sound_url && <span className="text-xs text-green-600 block mt-1">✓ Dosya yüklü</span>}
+                   </div>
+               )}
              </div>
+
              <div>
                <label className="block text-sm mb-1 dark:text-gray-300">Varsayılan Hayvan Resmi URL</label>
                <input 

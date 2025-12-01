@@ -60,6 +60,16 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
     ? Math.floor(selectedAnimal.total_price / currentMaxShares)
     : 0;
 
+  // Auto-Calculate Price whenever Animal, Max Shares, or Share Count changes
+  useEffect(() => {
+      if (selectedAnimal && formData.share_count > 0) {
+          const pricePerShare = selectedAnimal.total_price / currentMaxShares;
+          const totalAgreed = Math.floor(pricePerShare * formData.share_count);
+          setFormData(prev => ({ ...prev, amount_agreed: totalAgreed.toString() }));
+      }
+  }, [selectedAnimalId, maxSharesInput, formData.share_count, selectedAnimal, currentMaxShares]);
+
+
   const addToHistory = (record: TransactionRecord) => {
       setTransactionHistory(prev => [record, ...prev].slice(0, 10));
   };
@@ -236,7 +246,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
 
                     {selectedAnimal && (
                          <div className="mt-2 text-sm text-gray-500 flex justify-between">
-                            <span>Önerilen Hisse Fiyatı: <strong className="text-primary-600">{suggestedPrice} TL</strong></span>
+                            <span>Önerilen Hisse Fiyatı: <strong className="text-primary-600">{Math.floor(selectedAnimal.total_price / currentMaxShares)} TL</strong></span>
                             <span>Kalan Hisse: <strong className="text-red-600">{availableShares}</strong></span>
                         </div>
                     )}
@@ -279,6 +289,7 @@ const SalesPage: React.FC<Props> = ({ animals, refresh }) => {
                         <div className="flex-1">
                              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Anlaşılan TOPLAM Tutar</label>
                              <input type="number" required value={formData.amount_agreed} onChange={e => setFormData({...formData, amount_agreed: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                             <p className="text-xs text-gray-500 mt-1">* Otomatik hesaplanır, değiştirebilirsiniz.</p>
                         </div>
                     </div>
                 </div>

@@ -21,6 +21,7 @@ create table if not exists public.app_settings (
   announcement_duration_sec int default 60,
   announcement_timestamp text default '',
   notification_sound text default 'ding',
+  custom_sound_url text default '',
   site_title text default 'BANA Kurban',
   logo_url text default ''
 );
@@ -50,7 +51,8 @@ create table if not exists public.animals (
   year int references public.years(year) on delete cascade,
   max_shares int default 7,
   slaughter_status text default 'SIRADA',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- Create shares table

@@ -19,29 +19,69 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
     configService.getSettings().then(setSettings);
   }, []);
 
+  // Group Customers Logic:
+  // If a customer has multiple shares (same Name + Animal), they appear as 1 row with aggregated totals.
   const customers = useMemo(() => {
-    const list: any[] = [];
+    const groupedData = new Map<string, any>();
+
     animals.forEach(animal => {
       if (animal.shares) {
         animal.shares.forEach(share => {
-          list.push({
-            ...share,
-            animalTag: animal.tag_number,
-            animalType: animal.type,
-            animalPrice: animal.total_price,
-            remaining: share.amount_agreed - share.amount_paid
-          });
+          // Create a unique key for grouping. We use Name + AnimalID. 
+          // Ideally use Phone too, but sometimes users don't enter phone perfectly same.
+          // Using ID based grouping:
+          const key = `${animal.id}_${share.name}`;
+          
+          if (groupedData.has(key)) {
+              // Update existing entry
+              const existing = groupedData.get(key);
+              existing.shareCount += 1;
+              existing.amount_agreed += share.amount_agreed;
+              existing.amount_paid += share.amount_paid;
+              existing.remaining += (share.amount_agreed - share.amount_paid);
+              existing.ids.push(share.id);
+              
+              // Determine status: if any share is unpaid/partial, the group is partially paid unless all are paid
+              if (share.status !== ShareStatus.Paid) {
+                  existing.status = ShareStatus.Partial;
+              }
+          } else {
+              // Create new entry
+              groupedData.set(key, {
+                  ...share,
+                  ids: [share.id], // Keep track of all share IDs for this group
+                  shareCount: 1,
+                  animalTag: animal.tag_number,
+                  animalType: animal.type,
+                  animalPrice: animal.total_price,
+                  remaining: share.amount_agreed - share.amount_paid
+              });
+          }
         });
       }
     });
-    return list.sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Convert map to array and sort
+    return Array.from(groupedData.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [animals]);
 
-  const openDetail = async (customer: any) => {
-      setSelectedCustomer(customer);
-      // Fetch transactions for statement
-      const txs = await paymentService.getByShareId(customer.id);
-      setCustomerTransactions(txs);
+  const openDetail = async (customerGroup: any) => {
+      setSelectedCustomer(customerGroup);
+      
+      // Fetch transactions for ALL shares in this group
+      try {
+          const allTransactions = await Promise.all(
+              customerGroup.ids.map((id: string) => paymentService.getByShareId(id))
+          );
+          // Flatten array and sort by date
+          const flatTransactions = allTransactions.flat().sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          setCustomerTransactions(flatTransactions);
+      } catch (e) {
+          console.error("Error fetching transactions", e);
+          setCustomerTransactions([]);
+      }
   };
 
   const handleRefund = async () => {
@@ -53,16 +93,39 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
           return;
       }
 
+      // Refund Logic for grouped shares:
+      // We apply the refund to the first share in the group that has payment, or split it?
+      // Simpler: Apply to the first share ID for record keeping.
+      // Ideally we should ask WHICH share, but since they are grouped, we assume it's against the total debt.
+      
       try {
-          const newPaid = selectedCustomer.amount_paid - amount;
+          // We need to fetch the specific share data again to be safe, but we'll use the first one from IDs
+          const targetShareId = selectedCustomer.ids[0]; 
+          // We need current data for that share to update it correctly
+          // For simplicity in this grouped view, we will just log the transaction against the first ID.
+          // IMPORTANT: Status updates might be tricky if we don't know which specific share it belongs to.
+          // For now, we just log the transaction. The DB trigger or logic handles balance.
           
-          await shareService.update(selectedCustomer.id, {
+          // Re-fetching the specific share to update its paid amount
+          // Since we are in frontend-only logic mostly for calculation, let's just update the DB
+          
+          // Update: Just decrease amount_paid from the "Customer Group" total is visual. 
+          // We must update a real row in DB.
+          // We will update the FIRST share in the list.
+          
+          // NOTE: This is a limitation of grouping. We will pick the first share.
+          const currentShareData = animals.flatMap(a => a.shares).find(s => s?.id === targetShareId);
+          if (!currentShareData) return;
+
+          const newPaid = Math.max(0, currentShareData.amount_paid - amount);
+          
+          await shareService.update(targetShareId, {
               amount_paid: newPaid,
-              status: newPaid < selectedCustomer.amount_agreed ? ShareStatus.Partial : ShareStatus.Paid
+              status: newPaid < currentShareData.amount_agreed ? ShareStatus.Partial : ShareStatus.Paid
           });
 
           await paymentService.create({
-              share_id: selectedCustomer.id,
+              share_id: targetShareId,
               amount: amount,
               type: 'REFUND',
               description: 'Ödeme İptali / İade'
@@ -71,7 +134,6 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
           alert("İade/İptal işlemi başarılı.");
           setShowRefundModal(false);
           setRefundAmount('');
-          // Refresh handled by parent usually, but here we might need reload or better state management
           window.location.reload(); 
       } catch (e) {
           alert("İşlem hatası");
@@ -79,7 +141,6 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
   };
 
   // Calculate opening balance based on Total Paid - Sum of logged transactions
-  // This handles cases where data existed before transaction logging was added
   const loggedTotal = customerTransactions
         .filter(t => t.type === 'PAYMENT')
         .reduce((sum, t) => sum + t.amount, 0) 
@@ -107,7 +168,8 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                    <th className="p-4 font-semibold">Müşteri</th>
                    <th className="p-4 font-semibold">İletişim</th>
                    <th className="p-4 font-semibold">Hayvan</th>
-                   <th className="p-4 font-semibold text-right">Borç</th>
+                   <th className="p-4 font-semibold text-center">Hisse Adedi</th>
+                   <th className="p-4 font-semibold text-right">Kalan Borç</th>
                    <th className="p-4 font-semibold text-center">Durum</th>
                    <th className="p-4 font-semibold"></th>
                  </tr>
@@ -123,6 +185,15 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                             <span className="text-xs text-gray-400">{c.animalType}</span>
                         </div>
                      </td>
+                     <td className="p-4 text-center">
+                         {c.shareCount > 1 ? (
+                             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">
+                                 {c.shareCount} ADET
+                             </span>
+                         ) : (
+                             <span className="text-gray-400 text-sm">1</span>
+                         )}
+                     </td>
                      <td className="p-4 text-right">
                         {c.remaining > 0 ? (
                             <span className="font-bold text-red-600">-{c.remaining} TL</span>
@@ -132,10 +203,10 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                      </td>
                      <td className="p-4 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                           c.status === ShareStatus.Paid ? 'bg-green-100 text-green-800' : 
-                           c.status === ShareStatus.Partial ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                           c.remaining <= 0 ? 'bg-green-100 text-green-800' : 
+                           c.amount_paid > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {c.status === ShareStatus.Paid ? 'ÖDENDİ' : c.status === ShareStatus.Partial ? 'KISMI' : 'ÖDENMEDİ'}
+                          {c.remaining <= 0 ? 'ÖDENDİ' : c.amount_paid > 0 ? 'KISMI' : 'ÖDENMEDİ'}
                         </span>
                      </td>
                      <td className="p-4 text-right">
@@ -198,7 +269,7 @@ const CustomersPage: React.FC<Props> = ({ animals }) => {
                                {/* Initial Agreement */}
                                <tr className="border-b border-gray-100">
                                    <td className="py-3">
-                                       <span className="block font-bold text-gray-800">Kurban Hissesi Satışı</span>
+                                       <span className="block font-bold text-gray-800">Kurban Hissesi Satışı ({selectedCustomer.shareCount} Adet)</span>
                                        <span className="text-xs text-gray-500">Küpe No: #{selectedCustomer.animalTag} ({selectedCustomer.animalType})</span>
                                    </td>
                                    <td className="text-right py-3">{selectedCustomer.amount_agreed} TL</td>

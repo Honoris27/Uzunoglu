@@ -45,6 +45,7 @@ export interface Animal {
   max_shares: number; 
   slaughter_status: SlaughterStatus;
   created_at?: string;
+  updated_at?: string; // New field for sorting
   shares?: Shareholder[]; 
 }
 
@@ -62,9 +63,10 @@ export interface AppSettings {
   animal_types?: string[];
   bank_accounts?: BankAccount[];
   active_announcement?: string; 
-  announcement_duration_sec?: number; // Changed to seconds
-  announcement_timestamp?: string; // To trigger sound
-  notification_sound?: 'ding' | 'gong' | 'bell';
+  announcement_duration_sec?: number;
+  announcement_timestamp?: string;
+  notification_sound?: 'ding' | 'gong' | 'bell' | 'custom'; // Added custom
+  custom_sound_url?: string; // New field for Base64 audio
   site_title?: string;
   logo_url?: string;
 }

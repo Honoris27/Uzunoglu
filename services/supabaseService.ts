@@ -76,9 +76,14 @@ export const animalService = {
   },
 
   async update(id: string, updates: Partial<Animal>) {
+    const payload = {
+        ...updates,
+        updated_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('animals')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
@@ -172,6 +177,7 @@ export const configService = {
           announcement_duration_sec: 60,
           announcement_timestamp: '',
           notification_sound: 'ding',
+          custom_sound_url: '',
           site_title: 'BANA Kurban',
           logo_url: ''
       };

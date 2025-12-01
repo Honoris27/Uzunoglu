@@ -43,7 +43,7 @@ const LiveTVPage = () => {
                 setShowAnnouncement(true);
                 
                 if (audioEnabled) {
-                    playTone('bell'); // Alert sound for announcement
+                    playTone('bell', appSettings); // Alert sound for announcement
                 }
 
                 // Hide after duration
@@ -103,7 +103,7 @@ const LiveTVPage = () => {
                 setActiveAlert({ animal, status: newStatus, color, title });
                 
                 if (audioEnabled) {
-                    playTone(soundType);
+                    playTone(soundType, currentSettings);
                     speak(animal.tag_number, title);
                 }
                 setTimeout(() => setActiveAlert(null), 8000);
@@ -115,7 +115,14 @@ const LiveTVPage = () => {
       }
   };
 
-  const playTone = (type: string = 'ding') => {
+  const playTone = (type: string = 'ding', currentSettings?: AppSettings) => {
+      // Check for custom sound first
+      if (type === 'custom' && currentSettings?.custom_sound_url) {
+          const audio = new Audio(currentSettings.custom_sound_url);
+          audio.play().catch(e => console.error("Audio Play Error:", e));
+          return;
+      }
+
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -142,7 +149,7 @@ const LiveTVPage = () => {
           osc.start(now);
           osc.stop(now + 1.5);
       } else {
-          // Ding
+          // Ding (Default)
           osc.type = 'sine';
           osc.frequency.setValueAtTime(800, now);
           osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
@@ -161,7 +168,17 @@ const LiveTVPage = () => {
       window.speechSynthesis.speak(utterance);
   };
 
-  const filterByStatus = (status: SlaughterStatus) => animals.filter(a => a.slaughter_status === status);
+  // Sort logic: "en son gelen sona gelsin" (Updated at Ascending)
+  // This means animals updated earlier are at top, newly updated (moved here) are at bottom.
+  const filterAndSortByStatus = (status: SlaughterStatus) => {
+      return animals
+        .filter(a => a.slaughter_status === status)
+        .sort((a, b) => {
+            const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+            const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+            return timeA - timeB; // Ascending -> Oldest First, Newest Last (Bottom)
+        });
+  };
 
   if (!audioEnabled) {
       return (
@@ -195,25 +212,25 @@ const LiveTVPage = () => {
 
       {/* Main Board */}
       <div className="flex-1 p-4 grid grid-cols-5 gap-3 h-full overflow-hidden">
-         <StatusColumn title="KESİM SIRA" color="from-gray-700 to-gray-800" borderColor="border-gray-600" items={filterByStatus(SlaughterStatus.Pending)} />
-         <StatusColumn title="KESİLDİ" color="from-red-800 to-red-900" borderColor="border-red-600" items={filterByStatus(SlaughterStatus.Cut)} animate />
-         <StatusColumn title="PARÇALAMA" color="from-orange-700 to-orange-800" borderColor="border-orange-500" items={filterByStatus(SlaughterStatus.Chopping)} />
-         <StatusColumn title="PAYLAMA" color="from-yellow-700 to-yellow-800" borderColor="border-yellow-500" items={filterByStatus(SlaughterStatus.Sharing)} />
-         <StatusColumn title="TESLİM" color="from-green-700 to-green-800" borderColor="border-green-500" items={filterByStatus(SlaughterStatus.Delivered)} />
+         <StatusColumn title="KESİM SIRA" color="from-gray-700 to-gray-800" borderColor="border-gray-600" items={filterAndSortByStatus(SlaughterStatus.Pending)} />
+         <StatusColumn title="KESİLDİ" color="from-red-800 to-red-900" borderColor="border-red-600" items={filterAndSortByStatus(SlaughterStatus.Cut)} animate />
+         <StatusColumn title="PARÇALAMA" color="from-orange-700 to-orange-800" borderColor="border-orange-500" items={filterAndSortByStatus(SlaughterStatus.Chopping)} />
+         <StatusColumn title="PAYLAMA" color="from-yellow-700 to-yellow-800" borderColor="border-yellow-500" items={filterAndSortByStatus(SlaughterStatus.Sharing)} />
+         <StatusColumn title="TESLİM" color="from-green-700 to-green-800" borderColor="border-green-500" items={filterAndSortByStatus(SlaughterStatus.Delivered)} />
       </div>
 
       {/* Scrolling Marquee Announcement */}
       {showAnnouncement && (
-          <div className="absolute bottom-0 left-0 right-0 h-20 bg-blue-900 z-40 border-t-4 border-yellow-400 flex items-center shadow-2xl overflow-hidden">
-             <div className="bg-yellow-400 text-black font-black px-6 h-full flex items-center z-20 shadow-xl text-xl uppercase tracking-widest shrink-0">
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-blue-900 z-40 border-t-4 border-yellow-400 flex items-center shadow-2xl overflow-hidden">
+             <div className="bg-yellow-400 text-black font-black px-6 h-full flex items-center z-20 shadow-xl text-3xl uppercase tracking-widest shrink-0">
                  DUYURU
              </div>
              <div className="whitespace-nowrap w-full overflow-hidden flex items-center">
-                 <div className="animate-marquee inline-block text-3xl font-bold text-white px-4">
+                 <div className="animate-marquee inline-block text-4xl font-bold text-white px-4 leading-[6rem]">
                      {announcement}
                  </div>
                  {/* Duplicate for seamless loop effect visually, though standard marquee anim resets */}
-                 <div className="animate-marquee inline-block text-3xl font-bold text-white px-4" aria-hidden="true">
+                 <div className="animate-marquee inline-block text-4xl font-bold text-white px-4 leading-[6rem]" aria-hidden="true">
                      {announcement}
                  </div>
              </div>
@@ -222,21 +239,25 @@ const LiveTVPage = () => {
 
       {/* ALERT POPUP */}
       {activeAlert && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in zoom-in duration-300 p-8">
-              <div className={`bg-white text-black p-12 rounded-[3rem] shadow-2xl max-w-5xl w-full text-center border-[12px] ${activeAlert.color}`}>
-                  <h2 className="text-6xl font-black text-gray-400 mb-6 uppercase tracking-tighter">{activeAlert.title}</h2>
-                  <div className={`text-[160px] font-black leading-none mb-10 ${activeAlert.color.replace('border', 'text')}`}>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-in fade-in zoom-in duration-300 p-8">
+              <div className={`bg-white text-black p-12 rounded-[3rem] shadow-2xl max-w-6xl w-full text-center border-[12px] ${activeAlert.color}`}>
+                  <h2 className="text-6xl font-black text-gray-500 mb-6 uppercase tracking-tighter">{activeAlert.title}</h2>
+                  <div className={`text-[180px] font-black leading-none mb-10 ${activeAlert.color.replace('border', 'text')}`}>
                       #{activeAlert.animal.tag_number}
                   </div>
-                  <div className="bg-gray-100 p-8 rounded-2xl border-2 border-gray-200">
-                      <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-gray-300 pb-4 tracking-widest uppercase">HİSSEDARLAR</h3>
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-left">
-                          {activeAlert.animal.shares?.map((s, i) => (
-                              <div key={i} className="text-2xl font-bold text-gray-700 flex items-center gap-3">
-                                  <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
-                                  {s.name}
-                              </div>
-                          ))}
+                  <div className="bg-gray-100 p-8 rounded-3xl border-2 border-gray-200">
+                      <h3 className="text-4xl font-bold text-gray-800 mb-8 border-b-2 border-gray-300 pb-4 tracking-widest uppercase">HİSSEDARLAR</h3>
+                      <div className="grid grid-cols-2 gap-x-12 gap-y-6 text-left">
+                          {activeAlert.animal.shares && activeAlert.animal.shares.length > 0 ? (
+                              activeAlert.animal.shares.map((s, i) => (
+                                <div key={i} className="text-3xl font-bold text-gray-800 flex items-center gap-4 bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+                                    <span className="w-4 h-4 bg-gray-400 rounded-full shrink-0"></span>
+                                    <span className="truncate">{s.name}</span>
+                                </div>
+                              ))
+                          ) : (
+                              <div className="col-span-2 text-center text-gray-400 text-2xl italic">Hissedar bilgisi bulunamadı.</div>
+                          )}
                       </div>
                   </div>
               </div>
@@ -262,7 +283,8 @@ const StatusColumn = ({ title, color, borderColor, items, animate }: any) => (
         <div className="p-4 bg-black/20 text-center font-black text-2xl tracking-tight text-white/90 uppercase border-b border-white/10">
             {title} <span className="text-lg opacity-60 ml-2 text-white/50">({items.length})</span>
         </div>
-        <div className="p-3 space-y-3 overflow-y-auto flex-1 scrollbar-hide">
+        <div className="p-3 space-y-3 overflow-y-auto flex-1 scrollbar-hide flex flex-col justify-start">
+            {/* Standard Flex col places items from top to bottom. Newest (last updated) will be at bottom due to sort */}
             {items.map((item: Animal) => (
                 <div key={item.id} className={`p-4 bg-white text-black rounded-xl shadow-lg transform transition-all duration-500 flex flex-col items-center justify-center min-h-[100px] ${animate ? 'animate-pulse ring-4 ring-white/50' : ''}`}>
                     <div className="text-5xl font-black text-gray-900 tracking-tighter">#{item.tag_number}</div>
