@@ -1,0 +1,5 @@
+{
+  "name": "Kurban Yönetim Paneli",
+  "description": "Supabase altyapılı kurban satış, hisse yönetimi ve kesim takip sistemi.",
+  "requestFramePermissions": []
+}
